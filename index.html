@@ -573,7 +573,7 @@ function vInfo(){
     </div>
     <div id="info-err" class="err" style="display:none">이름과 회사명(팀명)을 모두 입력해 주세요.</div>
     <div class="btnrow">
-      <button class="btn btn-ghost" data-action="toGuide">이전</button>
+      <button class="btn btn-ghost" data-action="backHome">처음으로</button>
       <button class="btn btn-primary grow" data-action="beginQuiz">진단 시작하기</button>
     </div>
   </div>
@@ -667,6 +667,15 @@ function vResult(){
 
   const grid=gridSVG([{assert:cen.assert,coop:cen.coop,hex:primary.hex,strong:true,r:10}], true);
 
+  // TKI 모델 설명 (결과 화면에 배치 — 본인 유형과 연결되도록)
+  const modesList=MODE_ORDER.map(k=>{
+    const md=MODES[k], mine=doms.includes(k);
+    return `<div class="modeline"${mine?` style="border-color:${md.hex};background:#fbfdfb"`:''}>
+      <span class="swatch" style="background:${md.hex}"></span>
+      <div><b>${md.name}</b>${mine?` <span style="color:${md.hex};font-weight:700;font-size:12px">· 내 유형</span>`:''} <span class="tg">· ${md.tagline}</span></div>
+    </div>`;
+  }).join('');
+
   return `${brandbar()}
   <div class="card">
     <div class="res-hero">
@@ -692,6 +701,18 @@ function vResult(){
     <h2 class="sec">나의 갈등 좌표</h2>
     <p class="muted small" style="margin:6px 0 10px">자기주장(세로) × 협력(가로) 위에서 나의 평균 위치예요. 가운데에 가까울수록 균형 잡힌 사용을 뜻합니다.</p>
     <div class="gridwrap">${grid}</div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow">이 진단은</div>
+    <h2 class="sec" style="margin-top:8px">토마스–킬만 갈등관리 모델</h2>
+    <p class="muted small" style="margin:8px 0 0">갈등 대응은 아래 두 축으로 나뉘고, 그 조합이 다섯 가지 유형을 만들어요. 정답은 없으며, 모든 유형은 상황에 따라 각자의 쓸모가 있습니다.</p>
+    <div class="axis-explain">
+      <div class="axis-box"><b>자기주장 (Assertiveness)</b><p>내 관심사와 목표를 얼마나 적극적으로 챙기는가</p></div>
+      <div class="axis-box"><b>협력 (Cooperativeness)</b><p>상대의 관심사를 얼마나 함께 충족하려 하는가</p></div>
+    </div>
+    <h2 class="sec" style="margin-top:24px;font-size:18px">다섯 가지 유형</h2>
+    <div class="modegrid">${modesList}</div>
   </div>
 
   <div class="btnrow no-print">
@@ -947,7 +968,7 @@ document.addEventListener('click',e=>{
   const a=t.getAttribute('action')||t.dataset.action;
   const action=t.dataset.action;
   switch(action){
-    case 'start': go('guide'); break;
+    case 'start': go('info'); break;
     case 'toGuide': go('guide'); break;
     case 'toInfo': go('info'); break;
     case 'backHome': resetQuiz(); state.adminAuthed=false; go('home'); break;
