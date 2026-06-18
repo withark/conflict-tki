@@ -210,6 +210,12 @@
   .pwline{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
   .pwline input{flex:1 1 200px}
   .err{color:#c0392b;font-size:13px;margin-top:9px;font-weight:600}
+  .savebar{margin:0 0 14px;padding:11px 15px;border-radius:12px;font-size:13.5px;font-weight:600;line-height:1.5}
+  .savebar.saving{background:#FBF6E9;color:#9a7b27;border:1px solid #F0E4C4}
+  .savebar.ok{background:#EEF7F0;color:#247A45;border:1px solid #CDE9D3}
+  .savebar.fail{background:#FDEEEC;color:#b5362a;border:1px solid #F4C9C2}
+  .savebar.local{background:#F4F2EC;color:#6b6357;border:1px solid #E4DECF}
+  .linkbtn{background:none;border:none;color:inherit;font:inherit;font-weight:800;text-decoration:underline;cursor:pointer;padding:0}
 
   @media (max-width:620px){
     .wrap{padding:18px 15px 70px}
@@ -368,26 +374,27 @@ function jsonp(url){
 
 const Store = {
   mem:{}, // SHEET_API 미설정 시 로컬 테스트용 임시 저장
+  // 저장: JSONP(GET)으로 보내고 서버의 ok 응답으로 성공 여부를 확인합니다
   async save(obj){
-    if(!CONFIGURED){ this.mem['k'+obj.id]=JSON.stringify(obj); return false; }
-    try{
-      await fetch(SHEET_API,{
-        method:'POST', mode:'no-cors',
-        headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify(Object.assign({key:API_KEY},obj))
-      });
-      return true; // no-cors라 응답은 못 읽지만 시트 기록은 정상 수행됩니다
-    }catch(e){ console.error('save',e); return false; }
+    if(!CONFIGURED){ this.mem['k'+obj.id]=JSON.stringify(obj); return true; }
+    const p=new URLSearchParams({
+      action:'save', key:API_KEY,
+      id:obj.id, name:obj.name||'', team:obj.team||'',
+      comp:obj.scores.comp, collab:obj.scores.collab, compr:obj.scores.compr,
+      avoid:obj.scores.avoid, accom:obj.scores.accom,
+      dominant:(obj.dominant||[]).join(','), ts:obj.ts||''
+    });
+    const data=await jsonp(SHEET_API+'?'+p.toString());
+    if(!data || data.ok!==true) throw new Error((data&&data.error)||'save failed');
+    return true;
   },
   async loadAll(){
     if(!CONFIGURED){
-      return Object.values(this.mem).map(v=>JSON.parse(v)).sort((a,b)=>new Date(b.ts)-new Date(a.ts));
+      return dedupeLatest_(Object.values(this.mem).map(v=>JSON.parse(v)));
     }
     const data=await jsonp(SHEET_API+'?action=list&key='+encodeURIComponent(API_KEY));
     if(!data || data.ok===false) throw new Error((data&&data.error)||'load failed');
-    const arr=Array.isArray(data.results)?data.results:[];
-    const map={}; arr.forEach(r=>{ if(r&&r.id) map[r.id]=r; }); // id 중복 제거
-    return Object.values(map).sort((a,b)=>new Date(b.ts)-new Date(a.ts));
+    return dedupeLatest_(Array.isArray(data.results)?data.results:[]);
   },
   async clearAll(){
     if(!CONFIGURED){ this.mem={}; return; }
@@ -400,6 +407,17 @@ const Store = {
     }catch(e){ console.error('clear',e); }
   }
 };
+// 같은 사람(이름+회사명)은 가장 최근 제출만 집계에 반영 — 재제출/중복 방지
+function dedupeLatest_(arr){
+  const map={};
+  arr.forEach(r=>{
+    if(!r || (!r.id && !r.name)) return;
+    const key=(r.name||'')+'\u0000'+(r.team||'');
+    const cur=map[key];
+    if(!cur || new Date(r.ts) >= new Date(cur.ts)) map[key]=r;
+  });
+  return Object.values(map).sort((a,b)=>new Date(b.ts)-new Date(a.ts));
+}
 
 /* =========================================================
    SCORING
@@ -486,11 +504,12 @@ function gridSVG(points, showCornerDots){
   // plotted points
   points.forEach(p=>{
     const px=X(p.coop), py=Y(p.assert), r=p.r||9;
+    const tip=p.label?`<title>${esc(p.label)}</title>`:'';
     if(p.strong){
       s+=`<circle cx="${px}" cy="${py}" r="${r+7}" fill="${p.hex}" opacity="0.16"/>`;
-      s+=`<circle cx="${px}" cy="${py}" r="${r}" fill="${p.hex}" stroke="#fff" stroke-width="2.5"/>`;
+      s+=`<circle cx="${px}" cy="${py}" r="${r}" fill="${p.hex}" stroke="#fff" stroke-width="2.5">${tip}</circle>`;
     }else{
-      s+=`<circle cx="${px}" cy="${py}" r="${r}" fill="${p.hex}" opacity="${p.op||0.85}" stroke="#fff" stroke-width="1.5"/>`;
+      s+=`<circle cx="${px}" cy="${py}" r="${r}" fill="${p.hex}" opacity="${p.op||0.85}" stroke="#fff" stroke-width="1.5">${tip}</circle>`;
     }
   });
   s+=`</svg>`;
@@ -665,7 +684,7 @@ function vResult(){
     </div>`;
   }).join('');
 
-  const grid=gridSVG([{assert:cen.assert,coop:cen.coop,hex:primary.hex,strong:true,r:10}], true);
+  const grid=gridSVG([{assert:cen.assert,coop:cen.coop,hex:primary.hex,strong:true,r:10,label:'내 위치 · '+primary.name}], true);
 
   // TKI 모델 설명 (결과 화면에 배치 — 본인 유형과 연결되도록)
   const modesList=MODE_ORDER.map(k=>{
@@ -677,6 +696,7 @@ function vResult(){
   }).join('');
 
   return `${brandbar()}
+  ${saveStatusHTML(state.saveState||(CONFIGURED?'saving':'local'))}
   <div class="card">
     <div class="res-hero">
       ${badge}
@@ -713,6 +733,7 @@ function vResult(){
     </div>
     <h2 class="sec" style="margin-top:24px;font-size:18px">다섯 가지 유형</h2>
     <div class="modegrid">${modesList}</div>
+    <p class="muted small" style="margin-top:16px;border-top:1px solid var(--line);padding-top:13px">※ 이 결과는 정식 심리검사가 아니라, 자기 이해와 팀 대화를 돕기 위한 <b>자기성찰용 도구</b>예요. 유형은 고정된 꼬리표가 아니라 상황에 따라 달라질 수 있습니다.</p>
   </div>
 
   <div class="btnrow no-print">
@@ -833,9 +854,9 @@ function vAdminDash(){
     const d=dominantModes(r.scores)[0];
     // small deterministic jitter to reduce overlap
     const j=(idx%7-3)*0.012;
-    return {assert:Math.min(1,Math.max(0,c.assert+j)),coop:Math.min(1,Math.max(0,c.coop-j)),hex:MODES[d].hex,r:6.5,op:0.8};
+    return {assert:Math.min(1,Math.max(0,c.assert+j)),coop:Math.min(1,Math.max(0,c.coop-j)),hex:MODES[d].hex,r:6.5,op:0.8,label:(r.name||'참여자')+(r.team?' ('+r.team+')':'')+' · '+MODES[d].name};
   });
-  pts.push({assert:teamCentroid.assert,coop:teamCentroid.coop,hex:'#1C3A2E',strong:true,r:9});
+  pts.push({assert:teamCentroid.assert,coop:teamCentroid.coop,hex:'#1C3A2E',strong:true,r:9,label:'팀 평균 위치'});
   const grid=gridSVG(pts,false);
 
   // insights
@@ -874,7 +895,7 @@ function vAdminDash(){
 
   <div class="card">
     <h2 class="sec">팀 평균 점수</h2>
-    <p class="muted small" style="margin:6px 0 14px">유형별 12점 만점, 팀 전체 평균입니다.</p>
+    <p class="muted small" style="margin:6px 0 14px">유형별 12점 만점, 팀 전체 평균입니다. <b>참고</b> — 강제 선택 방식이라 점수는 개인 안에서의 상대값이에요. 사람 간 평균은 정밀한 수치라기보다 <b>대략적 경향</b>으로 봐 주세요.</p>
     <div class="scorelist">${avgRows}</div>
   </div>
 
@@ -1013,6 +1034,7 @@ document.addEventListener('click',e=>{
     case 'adminClear': onAdminClear(); break;
     case 'exportCsv': exportCsv(); break;
     case 'printPage': window.print(); break;
+    case 'retrySave': saveResult(); break;
   }
 });
 
@@ -1028,7 +1050,7 @@ function resetQuiz(){
   state.answers=new Array(Q.length).fill(null); state.lastResult=null;
 }
 
-async function finishQuiz(){
+function finishQuiz(){
   const scores=computeScores(state.answers);
   const result={
     id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),
@@ -1037,9 +1059,35 @@ async function finishQuiz(){
     ts:new Date().toISOString()
   };
   state.lastResult=result;
-  // save to shared storage (fire-and-forget; result screen shows regardless)
-  try{ await Store.save(result); }catch(_){}
-  go('result');
+  state.saveState = CONFIGURED ? 'saving' : 'local';
+  go('result');               // 결과는 즉시 표시
+  if(CONFIGURED) saveResult(); // 저장은 백그라운드 + 성공 확인
+}
+
+// 저장 + 서버 확인 + 1회 자동 재시도
+async function saveResult(){
+  setSaveState('saving');
+  try{
+    await Store.save(state.lastResult);
+    setSaveState('ok');
+  }catch(e){
+    try{
+      await new Promise(r=>setTimeout(r,1500));
+      await Store.save(state.lastResult);
+      setSaveState('ok');
+    }catch(e2){ console.error('save',e2); setSaveState('fail'); }
+  }
+}
+function setSaveState(s){
+  state.saveState=s;
+  const el=document.getElementById('save-status');
+  if(el) el.outerHTML=saveStatusHTML(s);
+}
+function saveStatusHTML(s){
+  if(s==='ok')    return `<div id="save-status" class="savebar ok no-print">✓ 결과가 저장됐어요 · 진행자 집계에 반영됩니다.</div>`;
+  if(s==='fail')  return `<div id="save-status" class="savebar fail no-print">결과 저장이 지연되고 있어요. 인터넷 연결을 확인한 뒤 <button class="linkbtn" data-action="retrySave">다시 저장</button>하거나 진행자에게 알려 주세요.</div>`;
+  if(s==='local') return `<div id="save-status" class="savebar local no-print">이 기기에만 임시 저장됨 · 집계 미연결 상태</div>`;
+  return `<div id="save-status" class="savebar saving no-print">결과 저장 중…</div>`;
 }
 
 function openAdminDash(){
@@ -1061,9 +1109,11 @@ async function doLoadAdmin(){
 }
 
 async function onAdminClear(){
-  if(!confirm('모든 참여자 결과를 삭제할까요?\n이 작업은 되돌릴 수 없습니다.')) return;
+  if(!confirm('모든 참여자 결과를 삭제할까요?\n삭제 전에 [CSV 내려받기]로 백업해 두는 것을 권장합니다.\n이 작업은 되돌릴 수 없습니다.')) return;
   await Store.clearAll();
-  state.adminResults=[];
+  // no-cors라 직접 확인이 안 되므로 재조회로 반영 확인
+  try{ await new Promise(r=>setTimeout(r,1200)); state.adminResults=await Store.loadAll(); }
+  catch(_){ state.adminResults=[]; }
   render();
 }
 
