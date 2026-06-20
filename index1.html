@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>갈등관리 유형 진단 · 위드아크 WithArk</title>
+<style>
+  :root{
+    --ink:#1C3A2E;        /* deep forest ink */
+    --ink-soft:#4A5D52;
+    --paper:#FBF8F1;      /* warm workshop paper */
+    --card:#FFFFFF;
+    --line:#E7E1D4;
+    --green:#2E9E5B;      /* WithArk green */
+    --green-d:#247A45;
+    --orange:#F2884B;     /* WithArk orange */
+    --orange-d:#D96E33;
+    --yellow:#F6C744;     /* WithArk yellow */
+    /* mode spectrum: hot(assertive) -> cold */
+    --m-comp:#E2603F;
+    --m-collab:#2E9E5B;
+    --m-compr:#E8A41F;
+    --m-avoid:#7E8CA0;
+    --m-accom:#4FA8C9;
+    --shadow:0 8px 30px rgba(28,58,46,.08);
+    --shadow-sm:0 2px 10px rgba(28,58,46,.06);
+    --radius:18px;
+    --font: "Pretendard","Pretendard Variable",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;line-height:1.55}
+  body{min-height:100vh}
+  .wrap{max-width:880px;margin:0 auto;padding:24px 20px 80px}
+  .center{max-width:680px}
+
+  /* ---------- header ---------- */
+  .brandbar{display:flex;align-items:center;gap:10px;margin-bottom:26px}
+  .brandmark{width:30px;height:30px;border-radius:9px;background:
+     conic-gradient(from 210deg, var(--green) 0 33%, var(--yellow) 33% 66%, var(--orange) 66% 100%);
+     box-shadow:var(--shadow-sm)}
+  .brandtxt{font-weight:800;font-size:15px;letter-spacing:-.01em}
+  .brandtxt span{color:var(--green)}
+  .brandtag{margin-left:auto;font-size:12px;color:var(--ink-soft);font-weight:600;
+     border:1px solid var(--line);padding:5px 11px;border-radius:999px;background:var(--card)}
+
+  /* ---------- cards / generic ---------- */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:30px}
+  .card + .card{margin-top:18px}
+  .eyebrow{font-size:12.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--green-d)}
+  h1.title{font-size:34px;line-height:1.12;font-weight:800;letter-spacing:-.022em;margin:12px 0 0}
+  h1.title b{color:var(--green)}
+  .lede{margin-top:14px;font-size:16px;color:var(--ink-soft);max-width:48ch}
+  h2.sec{font-size:21px;font-weight:800;letter-spacing:-.02em;margin:0}
+  .muted{color:var(--ink-soft)}
+  .small{font-size:13px}
+  code{background:#F0EBDF;padding:1px 6px;border-radius:5px;font-size:.9em;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+  /* ---------- buttons ---------- */
+  .btn{appearance:none;border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:15.5px;
+     padding:14px 22px;border-radius:13px;transition:transform .08s ease, box-shadow .15s ease, background .15s ease;
+     display:inline-flex;align-items:center;gap:9px;justify-content:center}
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:var(--green);color:#fff;box-shadow:0 6px 18px rgba(46,158,91,.28)}
+  .btn-primary:hover{background:var(--green-d)}
+  .btn-accent{background:var(--orange);color:#fff;box-shadow:0 6px 18px rgba(242,136,75,.28)}
+  .btn-accent:hover{background:var(--orange-d)}
+  .btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+  .btn-ghost:hover{border-color:#cfc8b8;background:#fbfaf6}
+  .btn[disabled]{opacity:.4;cursor:not-allowed;box-shadow:none}
+  .btn-block{width:100%}
+  .btnrow{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}
+  .btnrow .grow{flex:1 1 auto}
+
+  /* ---------- home actions ---------- */
+  .home-actions{display:grid;grid-template-columns:1fr;gap:14px;margin-top:28px}
+  .action-tile{display:flex;gap:16px;align-items:center;text-align:left;border:1.5px solid var(--line);
+     background:var(--card);border-radius:15px;padding:18px 20px;cursor:pointer;transition:border-color .15s, transform .08s, box-shadow .15s}
+  .action-tile:hover{border-color:var(--green);box-shadow:var(--shadow-sm)}
+  .action-tile:active{transform:translateY(1px)}
+  .action-ic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;flex:0 0 auto;font-weight:800;color:#fff;font-size:19px}
+  .action-ic.a{background:var(--green)}
+  .action-ic.b{background:var(--ink)}
+  .action-tx b{display:block;font-size:16px;font-weight:800}
+  .action-tx span{font-size:13.5px;color:var(--ink-soft)}
+
+  /* ---------- mode mini cards (guide) ---------- */
+  .axis-explain{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}
+  .axis-box{border:1px solid var(--line);border-radius:13px;padding:16px}
+  .axis-box b{font-size:14.5px}
+  .axis-box p{font-size:13px;color:var(--ink-soft);margin-top:4px}
+  .modegrid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:18px}
+  .modeline{display:flex;gap:13px;align-items:flex-start;border:1px solid var(--line);border-radius:13px;padding:14px 16px}
+  .swatch{width:13px;height:13px;border-radius:5px;margin-top:5px;flex:0 0 auto}
+  .modeline b{font-size:15px}
+  .modeline .tg{font-size:13px;color:var(--ink-soft)}
+
+  /* ---------- form ---------- */
+  .field{margin-top:18px}
+  .field label{display:block;font-weight:700;font-size:14px;margin-bottom:7px}
+  .field input{width:100%;font-family:inherit;font-size:16px;padding:14px 15px;border:1.5px solid var(--line);
+     border-radius:12px;background:#fff;color:var(--ink);transition:border-color .15s}
+  .field input:focus{outline:none;border-color:var(--green)}
+  .field .hint{font-size:12.5px;color:var(--ink-soft);margin-top:6px}
+
+  /* ---------- progress ---------- */
+  .progress-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+  .progress-head .qn{font-weight:800;font-size:15px}
+  .progress-head .qn em{color:var(--green);font-style:normal}
+  .progress-head .pct{font-size:13px;color:var(--ink-soft);font-weight:600}
+  .bar{height:9px;background:#EDE7DA;border-radius:999px;overflow:hidden}
+  .bar > i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--green),var(--yellow));transition:width .3s ease}
+
+  /* ---------- quiz ---------- */
+  .qstem{font-size:14px;color:var(--ink-soft);margin:22px 0 4px;font-weight:600}
+  .qopts{display:grid;gap:13px;margin-top:14px}
+  .opt{position:relative;text-align:left;border:1.8px solid var(--line);background:#fff;border-radius:15px;
+     padding:18px 18px 18px 56px;cursor:pointer;font-family:inherit;font-size:15.5px;color:var(--ink);line-height:1.5;
+     transition:border-color .12s, background .12s, box-shadow .12s}
+  .opt:hover{border-color:#bdd9c8}
+  .opt .pick{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:26px;height:26px;border-radius:8px;
+     border:2px solid #d7d0c1;display:grid;place-items:center;font-weight:800;color:#b7b0a0;font-size:13px;background:#fff;transition:all .12s}
+  .opt.sel{border-color:var(--green);background:#f3fbf6;box-shadow:0 4px 14px rgba(46,158,91,.13)}
+  .opt.sel .pick{background:var(--green);border-color:var(--green);color:#fff}
+  .navrow{display:flex;justify-content:space-between;gap:12px;margin-top:24px}
+
+  /* ---------- result ---------- */
+  .res-hero{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+  .res-badge{flex:0 0 auto;width:108px;height:108px;border-radius:24px;display:grid;place-items:center;color:#fff;
+     box-shadow:var(--shadow);text-align:center;padding:8px}
+  .res-badge .en{font-size:11px;font-weight:700;opacity:.9;letter-spacing:.05em}
+  .res-badge .ko{font-size:23px;font-weight:800;line-height:1.1;margin-top:2px}
+  .res-hd .who{font-size:13px;color:var(--ink-soft);font-weight:600}
+  .res-hd h2{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:2px 0 6px}
+  .res-hd .tag{font-size:15px;color:var(--ink-soft)}
+  .tied-note{margin-top:14px;font-size:13.5px;background:#FFF8E8;border:1px solid #F3E2AE;color:#8a6d1f;
+     padding:11px 14px;border-radius:11px}
+
+  .res-desc{margin-top:20px;font-size:15.5px;color:#33433b;line-height:1.65}
+
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}
+  .dbox{border:1px solid var(--line);border-radius:13px;padding:15px 16px}
+  .dbox h4{font-size:13px;font-weight:800;letter-spacing:.02em;display:flex;align-items:center;gap:7px;margin-bottom:8px}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+  .dbox ul{list-style:none;display:grid;gap:6px}
+  .dbox li{font-size:13.5px;color:var(--ink-soft);padding-left:16px;position:relative;line-height:1.45}
+  .dbox li::before{content:"";position:absolute;left:2px;top:8px;width:5px;height:5px;border-radius:50%;background:var(--green)}
+  .dbox.warn li::before{background:var(--orange)}
+  .dbox p{font-size:13.5px;color:var(--ink-soft);line-height:1.5}
+
+  /* score bars */
+  .scorelist{display:grid;gap:13px;margin-top:8px}
+  .scorerow{display:grid;grid-template-columns:84px 1fr 34px;align-items:center;gap:12px}
+  .scorerow .nm{font-size:13.5px;font-weight:700}
+  .scorerow .track{height:14px;background:#EFEADF;border-radius:999px;overflow:hidden}
+  .scorerow .track > i{display:block;height:100%;border-radius:999px;transition:width .6s cubic-bezier(.2,.7,.3,1)}
+  .scorerow .vv{font-size:13px;font-weight:800;text-align:right;color:var(--ink-soft)}
+
+  /* grid svg */
+  .gridwrap{display:flex;justify-content:center;margin-top:8px}
+  .gridwrap svg{width:100%;max-width:380px;height:auto}
+
+  .flex-detail{margin-top:18px;font-size:14px;color:var(--ink-soft);background:#F6FBF8;border:1px solid #d7ecdf;
+     padding:14px 16px;border-radius:12px;line-height:1.55}
+  .flex-detail b{color:var(--green-d)}
+
+  /* ---------- admin ---------- */
+  .stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:6px}
+  .stat{border:1px solid var(--line);border-radius:13px;padding:15px 16px;text-align:center}
+  .stat .num{font-size:30px;font-weight:800;letter-spacing:-.02em;color:var(--green)}
+  .stat .lab{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-top:2px}
+
+  .distrib{display:grid;gap:11px;margin-top:8px}
+  .distrib .drow{display:grid;grid-template-columns:78px 1fr 56px;align-items:center;gap:11px}
+  .distrib .nm{font-size:13.5px;font-weight:700}
+  .distrib .track{height:22px;background:#EFEADF;border-radius:8px;overflow:hidden;position:relative}
+  .distrib .track > i{display:block;height:100%;border-radius:8px;transition:width .6s ease}
+  .distrib .cnt{font-size:12.5px;font-weight:700;color:var(--ink-soft);text-align:right}
+
+  .insight{background:#F6FBF8;border:1px solid #d7ecdf;border-radius:14px;padding:18px 20px;margin-top:6px}
+  .insight h4{font-size:14px;font-weight:800;margin-bottom:8px;color:var(--green-d)}
+  .insight p{font-size:14px;color:#33433b;line-height:1.6}
+  .insight p + p{margin-top:9px}
+  .guide-q{display:grid;gap:9px;margin-top:10px}
+  .guide-q .gq{font-size:13.5px;color:var(--ink-soft);background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px 14px;position:relative;padding-left:36px}
+  .guide-q .gq b{position:absolute;left:13px;top:11px;color:var(--orange);font-weight:800}
+
+  .tablewrap{overflow-x:auto;margin-top:8px;border:1px solid var(--line);border-radius:13px}
+  table{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}
+  thead th{background:#F4EFE4;text-align:left;padding:11px 12px;font-weight:700;color:var(--ink);white-space:nowrap;border-bottom:1px solid var(--line)}
+  tbody td{padding:11px 12px;border-bottom:1px solid #F0EBDF;white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  td .pill{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px}
+  td .pill .dot{width:8px;height:8px}
+  .num-cell{text-align:center;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+  .num-cell.top{color:var(--ink);font-weight:800}
+
+  .empty{text-align:center;padding:40px 20px;color:var(--ink-soft)}
+  .empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:6px}
+
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .toolbar .btn{font-size:14px;padding:11px 16px}
+
+  .footnote{margin-top:26px;text-align:center;font-size:12px;color:#9aa297;line-height:1.6}
+  .footnote a{color:var(--ink-soft)}
+
+  .loader{display:flex;align-items:center;gap:11px;color:var(--ink-soft);font-size:14px;padding:8px 0}
+  .spin{width:18px;height:18px;border:2.5px solid #E0DACB;border-top-color:var(--green);border-radius:50%;animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  .pwline{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+  .pwline input{flex:1 1 200px}
+  .err{color:#c0392b;font-size:13px;margin-top:9px;font-weight:600}
+  .savebar{margin:0 0 14px;padding:11px 15px;border-radius:12px;font-size:13.5px;font-weight:600;line-height:1.5}
+  .savebar.saving{background:#FBF6E9;color:#9a7b27;border:1px solid #F0E4C4}
+  .savebar.ok{background:#EEF7F0;color:#247A45;border:1px solid #CDE9D3}
+  .savebar.fail{background:#FDEEEC;color:#b5362a;border:1px solid #F4C9C2}
+  .savebar.local{background:#F4F2EC;color:#6b6357;border:1px solid #E4DECF}
+  .linkbtn{background:none;border:none;color:inherit;font:inherit;font-weight:800;text-decoration:underline;cursor:pointer;padding:0}
+  .filterbar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-bottom:16px;padding:12px 15px;background:#F7F5EF;border:1px solid #E7E1D4;border-radius:14px;font-size:13px}
+  .filterbar label{display:flex;align-items:center;gap:7px;font-weight:700;color:var(--ink-soft)}
+  .filterbar select{font:inherit;font-weight:600;color:var(--ink);padding:6px 10px;border:1px solid #DAD3C4;border-radius:8px;background:#fff;max-width:210px}
+  .fcount{color:var(--ink-soft);font-weight:600;margin-left:auto}
+
+  @media (max-width:620px){
+    .wrap{padding:18px 15px 70px}
+    h1.title{font-size:28px}
+    .card{padding:22px 18px}
+    .axis-explain,.detail-grid,.stat-row{grid-template-columns:1fr}
+    .res-badge{width:92px;height:92px}
+    .scorerow{grid-template-columns:64px 1fr 30px}
+    .distrib .drow{grid-template-columns:62px 1fr 50px}
+  }
+
+  /* print */
+  @media print{
+    body{background:#fff}
+    .no-print{display:none !important}
+    .card{box-shadow:none;border:1px solid #ccc;break-inside:avoid}
+    .wrap{padding:0;max-width:100%}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap" id="app"></div>
+
+<script>
+/* =========================================================
+   DATA — Thomas-Kilmann conflict model (original items)
+   ========================================================= */
+const MODES = {
+  comp:   {key:'comp',  name:'경쟁형', en:'Competing',     color:'var(--m-comp)',   hex:'#E2603F', assert:1,  coop:0,
+           tagline:'내 목표를 분명히, 단호하게'},
+  collab: {key:'collab',name:'협력형', en:'Collaborating', color:'var(--m-collab)', hex:'#2E9E5B', assert:1,  coop:1,
+           tagline:'모두가 이기는 답을 함께'},
+  compr:  {key:'compr', name:'타협형', en:'Compromising',  color:'var(--m-compr)',  hex:'#E8A41F', assert:.5, coop:.5,
+           tagline:'서로 한 걸음씩, 중간에서'},
+  avoid:  {key:'avoid', name:'회피형', en:'Avoiding',      color:'var(--m-avoid)',  hex:'#7E8CA0', assert:0,  coop:0,
+           tagline:'지금은 한 발 물러서서'},
+  accom:  {key:'accom', name:'수용형', en:'Accommodating', color:'var(--m-accom)',  hex:'#4FA8C9', assert:0,  coop:1,
+           tagline:'관계를 위해 기꺼이 맞춰'},
+};
+const MODE_ORDER = ['comp','collab','compr','avoid','accom'];
+
+const CONTENT = {
+  comp:{desc:'자신의 입장과 목표를 분명히 드러내고 관철시키는 데 집중해요. 빠른 결단과 추진력이 강점이며, 옳다고 믿는 방향으로 상황을 이끌어 갑니다.',
+    strengths:['신속한 의사결정과 위기 대응','명확한 입장 표명과 추진력','인기 없지만 필요한 결정을 밀어붙이는 힘'],
+    overuse:'주변이 동의만 하게 되고, 솔직한 피드백이 막히며 관계가 상할 수 있어요.',
+    underuse:'영향력이 약해지고, 결단이 필요한 순간에도 우유부단해질 수 있어요.',
+    fit:'비상·긴급 상황, 명백히 옳고 중요한 사안, 빠른 실행이 필요할 때'},
+  collab:{desc:'양쪽의 진짜 관심사를 끝까지 파고들어, 모두가 만족하는 통합적 해결책을 만들어요. 시간이 걸려도 더 나은 답과 단단한 합의를 추구합니다.',
+    strengths:['창의적인 win-win 해법 도출','서로에 대한 이해와 학습','높은 헌신과 신뢰 형성'],
+    overuse:'사소한 일까지 깊이 논의하느라 시간과 에너지를 과하게 쓸 수 있어요.',
+    underuse:'함께 더 키울 기회를 놓치고, 합의의 힘과 혁신이 약해져요.',
+    fit:'양측 관심사가 모두 중요할 때, 장기적 관계, 새로운 통찰과 합의가 필요할 때'},
+  compr:{desc:'서로 조금씩 양보해 받아들일 만한 중간 지점을 빠르게 찾아요. 공정함과 실용성을 중시하며, 현실적인 결론을 잘 이끌어 냅니다.',
+    strengths:['빠르고 실용적인 합의','공정한 주고받기','힘이 비슷할 때 효과적인 절충'],
+    overuse:'큰 그림이나 원칙을 놓치고, 늘 절반에서 멈추는 인상을 줄 수 있어요.',
+    underuse:'불필요하게 대립이 길어지고, 협상에서 유연성이 떨어져요.',
+    fit:'시간이 촉박할 때, 임시 해결이 필요할 때, 협력·경쟁이 어려운 차선책일 때'},
+  avoid:{desc:'민감한 갈등은 일단 미뤄 두고 거리를 두며, 감정이 가라앉을 시간을 확보해요. 사소한 사안에 휘말리지 않고 상황을 차분히 지켜봅니다.',
+    strengths:['감정을 식힐 시간 확보','사소한 갈등에 에너지 낭비 안 함','정보를 더 모으고 타이밍을 기다림'],
+    overuse:'문제가 곪고 결정이 미뤄지며, 중요한 사안이 표류할 수 있어요.',
+    underuse:'불필요한 충돌에 휘말리고, 과부하와 적대감이 쌓이기 쉬워요.',
+    fit:'사소하거나 일시적인 사안, 더 식힐 시간이 필요할 때, 정보 수집이 먼저일 때'},
+  accom:{desc:'자신의 주장보다 상대의 입장과 관계를 우선해 기꺼이 양보해요. 화합을 잘 만들고, 상대가 더 옳을 때 깨끗하게 인정합니다.',
+    strengths:['관계 유지와 신뢰·호의 축적','팀의 화합 조성','상대가 옳을 때 유연하게 수용'],
+    overuse:'자신의 needs가 묻히고 영향력이 약해지며, 속에 불만이 쌓일 수 있어요.',
+    underuse:'주변의 호의를 얻기 어렵고, 분위기가 경직될 수 있어요.',
+    fit:'내가 틀렸거나 상대에게 더 중요한 사안일 때, 관계·화합이 우선일 때'},
+};
+
+/* 30 forced-choice items. Each statement maps to a mode.
+   Balanced: every mode appears exactly 12 times. */
+const Q = [
+  {a:{t:'내 생각을 강하게 주장해서 원하는 결과를 얻으려 한다.',m:'comp'},   b:{t:'모두의 우려를 테이블에 올려놓고 함께 최선책을 찾으려 한다.',m:'collab'}},
+  {a:{t:'문제의 근본 원인을 함께 파헤쳐 모두에게 이로운 답을 찾는다.',m:'collab'}, b:{t:'옳다고 확신하면 그 입장을 끝까지 밀고 나간다.',m:'comp'}},
+  {a:{t:'논쟁에서 내 입장을 분명히 하고 이기려고 노력한다.',m:'comp'},     b:{t:'서로의 진짜 관심사를 드러내 새로운 해결책을 만든다.',m:'collab'}},
+
+  {a:{t:'양보 없이 내가 원하는 바를 관철시키려 한다.',m:'comp'},          b:{t:'서로 조금씩 양보해 절충점을 찾으려 한다.',m:'compr'}},
+  {a:{t:'공정한 중간 지점에서 합의하는 것을 선호한다.',m:'compr'},        b:{t:'내 목표를 달성하기 위해 단호하게 행동한다.',m:'comp'}},
+  {a:{t:'내 주장을 굽히지 않고 끝까지 설득하려 한다.',m:'comp'},          b:{t:'양쪽이 받아들일 만한 타협안을 빠르게 제시한다.',m:'compr'}},
+
+  {a:{t:'갈등이 생기면 정면으로 부딪혀 해결하려 한다.',m:'comp'},         b:{t:'갈등이 생기면 한 발 물러나 상황을 지켜본다.',m:'avoid'}},
+  {a:{t:'민감한 사안은 분위기가 나아질 때까지 미뤄 둔다.',m:'avoid'},      b:{t:'내 입장을 즉시 분명하게 표현한다.',m:'comp'}},
+  {a:{t:'내가 원하는 방향으로 강하게 끌고 간다.',m:'comp'},              b:{t:'불필요한 충돌은 피하고 거리를 둔다.',m:'avoid'}},
+
+  {a:{t:'내 의견을 관철시키는 것을 우선한다.',m:'comp'},                 b:{t:'관계를 위해 상대의 뜻을 따른다.',m:'accom'}},
+  {a:{t:'상대가 더 중요하게 여기는 일이라면 기꺼이 양보한다.',m:'accom'},   b:{t:'내 입장을 지키기 위해 적극적으로 주장한다.',m:'comp'}},
+  {a:{t:'옳다고 믿는 바를 강하게 밀어붙인다.',m:'comp'},                 b:{t:'상대의 기분이 상하지 않도록 내 요구를 접는다.',m:'accom'}},
+
+  {a:{t:'시간이 걸리더라도 모두가 만족하는 답을 찾으려 한다.',m:'collab'},  b:{t:'서로 적당히 양보해 빠르게 마무리하려 한다.',m:'compr'}},
+  {a:{t:'양쪽 모두 조금씩 얻는 중간 합의를 선호한다.',m:'compr'},        b:{t:'모두의 관심사를 충족하는 통합적 해결책을 추구한다.',m:'collab'}},
+  {a:{t:'갈등을 함께 풀어야 할 공동의 문제로 본다.',m:'collab'},         b:{t:'갈등을 적절히 주고받아 매듭지을 거래로 본다.',m:'compr'}},
+
+  {a:{t:'문제를 드러내 놓고 함께 깊이 논의하려 한다.',m:'collab'},        b:{t:'문제를 굳이 들추지 않고 자연스럽게 흘려보낸다.',m:'avoid'}},
+  {a:{t:'갈등 상황에서는 말을 아끼고 거리를 둔다.',m:'avoid'},           b:{t:'갈등 상황에서 적극적으로 대화를 이끌어 해법을 찾는다.',m:'collab'}},
+  {a:{t:'서로의 입장 차이를 충분히 이야기해 합의에 이르려 한다.',m:'collab'}, b:{t:'입장 차이가 크면 일단 그 주제를 피한다.',m:'avoid'}},
+
+  {a:{t:'내 관심사도 지키면서 상대의 관심사도 함께 충족하려 한다.',m:'collab'}, b:{t:'상대의 바람을 우선시하고 그에 맞춘다.',m:'accom'}},
+  {a:{t:'상대의 의견을 존중해 내 주장을 내려놓는다.',m:'accom'},         b:{t:'양측의 의견을 모아 더 나은 안을 만든다.',m:'collab'}},
+  {a:{t:'모두의 needs를 테이블에 올려 함께 조율한다.',m:'collab'},       b:{t:'갈등을 줄이기 위해 내가 먼저 맞춰 준다.',m:'accom'}},
+
+  {a:{t:'서로 조금씩 양보하는 선에서 마무리한다.',m:'compr'},           b:{t:'결정을 미루고 상황을 더 지켜본다.',m:'avoid'}},
+  {a:{t:'껄끄러운 논의는 가능하면 피한다.',m:'avoid'},                 b:{t:'빠르게 절충안을 찾아 매듭짓는다.',m:'compr'}},
+  {a:{t:'양쪽이 적당히 만족하는 선에서 합의한다.',m:'compr'},           b:{t:'부담스러운 사안은 거리를 두고 지켜본다.',m:'avoid'}},
+
+  {a:{t:'서로 절반씩 주고받는 합의를 선호한다.',m:'compr'},             b:{t:'상대가 원하는 쪽으로 양보하는 편이다.',m:'accom'}},
+  {a:{t:'관계를 위해 내 몫을 기꺼이 내어 준다.',m:'accom'},            b:{t:'공정하게 나누는 중간 지점을 택한다.',m:'compr'}},
+  {a:{t:'서로 일부를 포기하는 타협을 제안한다.',m:'compr'},            b:{t:'상대의 요구를 받아들여 맞춰 준다.',m:'accom'}},
+
+  {a:{t:'갈등을 피하기 위해 일단 그 자리를 벗어난다.',m:'avoid'},        b:{t:'갈등을 피하기 위해 상대에게 맞춰 준다.',m:'accom'}},
+  {a:{t:'다툼을 막기 위해 상대의 뜻을 따른다.',m:'accom'},             b:{t:'다툼이 예상되면 그 주제를 꺼내지 않는다.',m:'avoid'}},
+  {a:{t:'민감한 문제는 시간이 해결하도록 둔다.',m:'avoid'},            b:{t:'민감한 문제에서 상대를 배려해 양보한다.',m:'accom'}},
+];
+
+const ADMIN_PASS = 'withark'; // ← 진행자 비밀번호 (원하시면 이 값을 수정하세요)
+
+/* =========================================================
+   STATE
+   ========================================================= */
+const state = {
+  screen:'home',
+  name:'', team:'',
+  qIndex:0,
+  answers:new Array(Q.length).fill(null),
+  lastResult:null,
+  adminAuthed:false,
+  adminResults:[],
+  adminLoading:false,
+  adminError:'',
+  pwError:'',
+};
+
+/* =========================================================
+   STORAGE — 구글 시트 백엔드 (Apps Script 웹앱)
+   ↓↓↓ 배포 전, 아래 SHEET_API 에 Apps Script 웹앱 URL(.../exec)을 붙여넣으세요 ↓↓↓
+   ========================================================= */
+const SHEET_API = 'https://script.google.com/macros/s/AKfycbyzpdLNJSWW_-CtZdbRi9Cx7Ss2SMkSn5SpXOe7tVm7N0pUtjhrwkO4VYSeo55R1x2D5g/exec';
+const API_KEY   = 'withark';            // Apps Script 코드의 API_KEY 와 반드시 동일해야 합니다
+const CONFIGURED = SHEET_API.indexOf('PASTE_') === -1;
+/* 진행자 모드: 주소에 ?admin (또는 #admin)이 있을 때만 집계 대시보드로 진입 */
+const ADMIN_MODE = (location.search + location.hash).toLowerCase().indexOf('admin') > -1;
+
+/* JSONP: Apps Script GET 응답을 CORS 제약 없이 받기 위함 */
+function jsonp(url){
+  return new Promise((resolve,reject)=>{
+    const cb='tki_cb_'+Date.now().toString(36)+Math.floor(Math.random()*1e6).toString(36);
+    const sep=url.indexOf('?')===-1?'?':'&';
+    const s=document.createElement('script');
+    const timer=setTimeout(()=>{cleanup();reject(new Error('timeout'));},15000);
+    function cleanup(){clearTimeout(timer);try{delete window[cb];}catch(_){window[cb]=undefined;}if(s.parentNode)s.parentNode.removeChild(s);}
+    window[cb]=(data)=>{cleanup();resolve(data);};
+    s.onerror=()=>{cleanup();reject(new Error('network'));};
+    s.src=url+sep+'callback='+cb;
+    document.body.appendChild(s);
+  });
+}
+
+const Store = {
+  mem:{}, // SHEET_API 미설정 시 로컬 테스트용 임시 저장
+  // 저장: JSONP(GET)으로 보내고 서버의 ok 응답으로 성공 여부를 확인합니다
+  async save(obj){
+    if(!CONFIGURED){ this.mem['k'+obj.id]=JSON.stringify(obj); return true; }
+    const p=new URLSearchParams({
+      action:'save', key:API_KEY,
+      id:obj.id, name:obj.name||'', team:obj.team||'',
+      comp:obj.scores.comp, collab:obj.scores.collab, compr:obj.scores.compr,
+      avoid:obj.scores.avoid, accom:obj.scores.accom,
+      dominant:(obj.dominant||[]).join(','), ts:obj.ts||''
+    });
+    const data=await jsonp(SHEET_API+'?'+p.toString());
+    if(!data || data.ok!==true) throw new Error((data&&data.error)||'save failed');
+    return true;
+  },
+  async loadAll(){
+    if(!CONFIGURED){
+      return dedupeLatest_(Object.values(this.mem).map(v=>JSON.parse(v)));
+    }
+    const data=await jsonp(SHEET_API+'?action=list&key='+encodeURIComponent(API_KEY));
+    if(!data || data.ok===false) throw new Error((data&&data.error)||'load failed');
+    return dedupeLatest_(Array.isArray(data.results)?data.results:[]);
+  },
+  async clearAll(){
+    if(!CONFIGURED){ this.mem={}; return; }
+    try{
+      await fetch(SHEET_API,{
+        method:'POST', mode:'no-cors',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({action:'clear',key:API_KEY})
+      });
+    }catch(e){ console.error('clear',e); }
+  }
+};
+// 같은 사람(이름+회사명)은 가장 최근 제출만 집계에 반영 — 재제출/중복 방지
+function dedupeLatest_(arr){
+  const map={};
+  arr.forEach(r=>{
+    if(!r || (!r.id && !r.name)) return;
+    const key=(r.name||'')+'\u0000'+(r.team||'');
+    const cur=map[key];
+    if(!cur || new Date(r.ts) >= new Date(cur.ts)) map[key]=r;
+  });
+  return Object.values(map).sort((a,b)=>new Date(b.ts)-new Date(a.ts));
+}
+
+// ── 진행자 대시보드: 날짜/회사 기준 필터 (데이터는 누적, 보기만 분리) ──
+const WDAYS=['일','월','화','수','목','금','토'];
+function dayKey(ts){           // 제출 시각 → 현지 날짜 'YYYY-MM-DD'
+  const d=new Date(ts), p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+function dayLabel(key){
+  const [y,m,da]=key.split('-').map(Number);
+  return `${key} (${WDAYS[new Date(y,m-1,da).getDay()]})`;
+}
+function uniqueDates_(arr){
+  const cnt={}; arr.forEach(r=>{ const k=dayKey(r.ts); cnt[k]=(cnt[k]||0)+1; });
+  return Object.keys(cnt).sort().reverse().map(k=>({key:k,label:dayLabel(k),n:cnt[k]}));
+}
+function uniqueTeams_(arr){
+  const cnt={}; arr.forEach(r=>{ const t=(r.team||'').trim(); if(t) cnt[t]=(cnt[t]||0)+1; });
+  return Object.keys(cnt).sort().map(t=>({name:t,n:cnt[t]}));
+}
+function filteredAdmin(){      // 현재 필터가 적용된 결과 (대시보드·CSV 공통)
+  const all=state.adminResults||[];
+  const df=state.adminDateFilter||'', tf=state.adminTeamFilter||'';
+  return all.filter(r=>(!df || dayKey(r.ts)===df) && (!tf || (r.team||'').trim()===tf));
+}
+
+/* =========================================================
+   SCORING
+   ========================================================= */
+function computeScores(answers){
+  const s={comp:0,collab:0,compr:0,avoid:0,accom:0};
+  answers.forEach((ch,i)=>{
+    if(!ch) return;
+    const m=Q[i][ch].m; s[m]++;
+  });
+  return s;
+}
+function dominantModes(scores){
+  const max=Math.max(...MODE_ORDER.map(k=>scores[k]));
+  return MODE_ORDER.filter(k=>scores[k]===max);
+}
+function centroid(scores){ // -> {assert, coop} 0..1
+  let total=0, a=0, c=0;
+  MODE_ORDER.forEach(k=>{ const v=scores[k]; total+=v; a+=v*MODES[k].assert; c+=v*MODES[k].coop; });
+  if(total===0) return {assert:.5,coop:.5};
+  return {assert:a/total, coop:c/total};
+}
+function flexibilityLabel(scores){
+  // spread of the 5 scores: lower spread -> more flexible
+  const vals=MODE_ORDER.map(k=>scores[k]);
+  const mean=vals.reduce((x,y)=>x+y,0)/5;
+  const variance=vals.reduce((x,y)=>x+(y-mean)**2,0)/5;
+  const sd=Math.sqrt(variance);
+  if(sd<=1.6) return {t:'균형형', d:'다섯 가지 방식을 고르게 사용해요. 상황에 따라 유연하게 갈등을 다룰 수 있는 강점이 있습니다.'};
+  if(sd<=2.8) return {t:'복합형', d:'주된 방식이 있지만 다른 방식도 함께 쓰는 편이에요. 상황별로 의식해서 활용하면 더 유연해집니다.'};
+  return {t:'집중형', d:'특정 방식에 크게 의존하는 편이에요. 잘 안 쓰는 접근을 의도적으로 연습하면 갈등 대응의 폭이 넓어집니다.'};
+}
+
+/* =========================================================
+   SMALL HELPERS
+   ========================================================= */
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(iso){
+  const d=new Date(iso);
+  const p=n=>String(n).padStart(2,'0');
+  return `${d.getMonth()+1}.${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function brandbar(){
+  return `<div class="brandbar">
+    <div class="brandmark"></div>
+    <div class="brandtxt">위드아크 <span>WithArk</span></div>
+    <div class="brandtag">갈등관리 유형 진단</div>
+  </div>`;
+}
+
+/* conflict grid SVG. points:[{assert,coop,hex,r,strong}] */
+function gridSVG(points, showCornerDots){
+  const W=360,H=360, m=46, inner=W-m*2;
+  const X=c=>m+c*inner, Y=a=>m+(1-a)*inner;
+  const corners=[
+    {k:'comp',   x:X(0),y:Y(1)}, {k:'collab', x:X(1),y:Y(1)},
+    {k:'avoid',  x:X(0),y:Y(0)}, {k:'accom',  x:X(1),y:Y(0)},
+    {k:'compr',  x:X(.5),y:Y(.5)},
+  ];
+  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="갈등 대응 좌표">`;
+  s+=`<rect x="${m}" y="${m}" width="${inner}" height="${inner}" rx="14" fill="#FBFAF6" stroke="#E7E1D4"/>`;
+  // quadrant guides
+  s+=`<line x1="${X(.5)}" y1="${m}" x2="${X(.5)}" y2="${m+inner}" stroke="#ECE6D8" stroke-dasharray="4 5"/>`;
+  s+=`<line x1="${m}" y1="${Y(.5)}" x2="${m+inner}" y2="${Y(.5)}" stroke="#ECE6D8" stroke-dasharray="4 5"/>`;
+  // axis labels
+  s+=`<text x="${m-14}" y="${m+12}" font-size="12" font-weight="700" fill="#4A5D52" transform="rotate(-90 ${m-14} ${m+12})" text-anchor="end">자기주장 높음 ↑</text>`;
+  s+=`<text x="${m-14}" y="${m+inner}" font-size="11" fill="#9aa297" transform="rotate(-90 ${m-14} ${m+inner})" text-anchor="start">자기주장 낮음</text>`;
+  s+=`<text x="${m}" y="${m+inner+26}" font-size="11" fill="#9aa297" text-anchor="start">협력 낮음</text>`;
+  s+=`<text x="${m+inner}" y="${m+inner+26}" font-size="12" font-weight="700" fill="#4A5D52" text-anchor="end">협력 높음 →</text>`;
+  // corner mode labels (+ faint reference dots)
+  corners.forEach(c=>{
+    const md=MODES[c.k];
+    if(showCornerDots){
+      s+=`<circle cx="${c.x}" cy="${c.y}" r="6" fill="${md.hex}" opacity="0.22"/>`;
+    }
+    let lx=c.x, ly=c.y, anchor='middle', dy=0;
+    if(c.k==='comp'){ ly=c.y-13; }
+    if(c.k==='collab'){ ly=c.y-13; }
+    if(c.k==='avoid'){ ly=c.y+22; }
+    if(c.k==='accom'){ ly=c.y+22; }
+    if(c.k==='compr'){ ly=c.y-12; }
+    s+=`<text x="${lx}" y="${ly}" font-size="11.5" font-weight="700" fill="${md.hex}" text-anchor="${anchor}">${md.name}</text>`;
+  });
+  // plotted points
+  points.forEach(p=>{
+    const px=X(p.coop), py=Y(p.assert), r=p.r||9;
+    const tip=p.label?`<title>${esc(p.label)}</title>`:'';
+    if(p.strong){
+      s+=`<circle cx="${px}" cy="${py}" r="${r+7}" fill="${p.hex}" opacity="0.16"/>`;
+      s+=`<circle cx="${px}" cy="${py}" r="${r}" fill="${p.hex}" stroke="#fff" stroke-width="2.5">${tip}</circle>`;
+    }else{
+      s+=`<circle cx="${px}" cy="${py}" r="${r}" fill="${p.hex}" opacity="${p.op||0.85}" stroke="#fff" stroke-width="1.5">${tip}</circle>`;
+    }
+  });
+  s+=`</svg>`;
+  return s;
+}
+
+/* =========================================================
+   RENDER
+   ========================================================= */
+const app=()=>document.getElementById('app');
+
+function render(){
+  const fn={home:vHome,guide:vGuide,info:vInfo,quiz:vQuiz,result:vResult,
+            adminLogin:vAdminLogin,adminDash:vAdminDash}[state.screen];
+  app().innerHTML=fn();
+  window.scrollTo({top:0,behavior:'instant'});
+  if(state.screen==='adminDash' && state.adminLoading){ doLoadAdmin(); }
+}
+
+/* ---- HOME ---- */
+function vHome(){
+  return `${brandbar()}
+  <div class="card center">
+    <div class="eyebrow">팀빌딩 · 조직개발 워크숍</div>
+    <h1 class="title">우리 팀은 갈등을<br><b>어떻게 다루고 있을까요?</b></h1>
+    <p class="lede">토마스–킬만 모델을 바탕으로 한 30문항 진단입니다. 갈등 상황에서 나의 대응 방식을 다섯 가지 유형으로 비춰 보고, 팀 전체의 갈등 지형을 한눈에 살펴봅니다. 약 5분이면 충분해요.</p>
+    <div class="home-actions">
+      <button class="action-tile" data-action="start">
+        <div class="action-ic a">진단</div>
+        <div class="action-tx"><b>나의 갈등관리 유형 진단 시작하기</b><span>30문항 · 약 5분 · 개인 결과 + 갈등 좌표 확인</span></div>
+      </button>
+    </div>
+  </div>
+  ${footer()}`;
+}
+
+/* ---- GUIDE (intro to 5 modes) ---- */
+function vGuide(){
+  const modes=MODE_ORDER.map(k=>{
+    const md=MODES[k];
+    return `<div class="modeline">
+      <span class="swatch" style="background:${md.hex}"></span>
+      <div><b>${md.name}</b> <span class="tg">· ${md.tagline}</span></div>
+    </div>`;
+  }).join('');
+  return `${brandbar()}
+  <div class="card center">
+    <div class="eyebrow">시작 전에</div>
+    <h2 class="sec" style="margin-top:8px">갈등 대응은 두 축으로 나뉘어요</h2>
+    <p class="muted small" style="margin-top:8px">정답은 없어요. 모든 유형은 상황에 따라 각자의 쓸모가 있습니다. 평소 나에게 더 가까운 쪽을 솔직하게 고르면 됩니다.</p>
+    <div class="axis-explain">
+      <div class="axis-box"><b>자기주장 (Assertiveness)</b><p>내 관심사와 목표를 얼마나 적극적으로 챙기는가</p></div>
+      <div class="axis-box"><b>협력 (Cooperativeness)</b><p>상대의 관심사를 얼마나 함께 충족하려 하는가</p></div>
+    </div>
+    <h2 class="sec" style="margin-top:26px;font-size:18px">두 축이 만들어 내는 5가지 유형</h2>
+    <div class="modegrid">${modes}</div>
+    <div class="btnrow">
+      <button class="btn btn-ghost" data-action="backHome">처음으로</button>
+      <button class="btn btn-primary grow" data-action="toInfo">계속하기</button>
+    </div>
+  </div>
+  ${footer()}`;
+}
+
+/* ---- INFO (name/team) ---- */
+function vInfo(){
+  return `${brandbar()}
+  <div class="card center">
+    <div class="eyebrow">참여자 정보</div>
+    <h2 class="sec" style="margin-top:8px">먼저 간단히 알려 주세요</h2>
+    <p class="muted small" style="margin-top:8px">이름과 회사명(팀명)은 진행자 집계 화면에만 표시돼요. 워크숍이 끝나면 진행자가 데이터를 초기화할 수 있습니다.</p>
+    <div class="field">
+      <label for="f-name">이름 또는 닉네임 *</label>
+      <input id="f-name" type="text" placeholder="예: 이다윗" value="${esc(state.name)}" maxlength="20" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="f-team">회사명 (팀명) *</label>
+      <input id="f-team" type="text" placeholder="예: OO기업 / 기획팀" value="${esc(state.team)}" maxlength="40" autocomplete="off">
+      <div class="hint">소속이 집계 화면과 내려받기 파일에 함께 표시됩니다.</div>
+    </div>
+    <div id="info-err" class="err" style="display:none">이름과 회사명(팀명)을 모두 입력해 주세요.</div>
+    <div class="btnrow">
+      <button class="btn btn-ghost" data-action="backHome">처음으로</button>
+      <button class="btn btn-primary grow" data-action="beginQuiz">진단 시작하기</button>
+    </div>
+  </div>
+  ${footer()}`;
+}
+
+/* ---- QUIZ ---- */
+function vQuiz(){
+  const i=state.qIndex, q=Q[i], sel=state.answers[i];
+  const pct=Math.round(((i)/Q.length)*100);
+  const answered=state.answers.filter(Boolean).length;
+  const isLast=i===Q.length-1;
+  const opt=(ch,label)=>{
+    const o=q[ch];
+    return `<button class="opt ${sel===ch?'sel':''}" data-action="answer" data-choice="${ch}">
+      <span class="pick">${label}</span>${esc(o.t)}</button>`;
+  };
+  return `${brandbar()}
+  <div class="card">
+    <div class="progress-head">
+      <div class="qn">질문 <em>${i+1}</em> / ${Q.length}</div>
+      <div class="pct">${answered}개 응답 완료</div>
+    </div>
+    <div class="bar"><i style="width:${Math.max(pct,3)}%"></i></div>
+    <div class="qstem">갈등 상황에서 나에게 더 가까운 쪽은?</div>
+    <div class="qopts">
+      ${opt('a','A')}
+      ${opt('b','B')}
+    </div>
+    <div class="navrow">
+      <button class="btn btn-ghost" data-action="prev">← 이전</button>
+      <button class="btn ${isLast?'btn-accent':'btn-primary'}" data-action="next" ${sel?'':'disabled'}>
+        ${isLast?'결과 보기 →':'다음 →'}
+      </button>
+    </div>
+  </div>
+  ${footer()}`;
+}
+
+/* ---- RESULT ---- */
+function vResult(){
+  const r=state.lastResult;
+  const sc=r.scores;
+  const doms=r.dominant;
+  const primary=MODES[doms[0]];
+  const cen=centroid(sc);
+  const flex=flexibilityLabel(sc);
+
+  // dominant heading
+  const domNames=doms.map(k=>MODES[k].name).join(' · ');
+  const badge=`<div class="res-badge" style="background:${primary.hex}">
+      <div class="en">${primary.en}</div><div class="ko">${primary.name}</div></div>`;
+
+  const tied = doms.length>1
+    ? `<div class="tied-note">두 가지 이상의 유형이 같은 점수예요. 상황에 따라 방식을 바꿔 쓰는 <b>유연함</b>을 가지고 있다는 뜻입니다.</div>` : '';
+
+  // detail (primary mode)
+  const c=CONTENT[doms[0]];
+  const detail=`
+    <p class="res-desc">${c.desc}</p>
+    <div class="detail-grid">
+      <div class="dbox">
+        <h4><span class="dot" style="background:${primary.hex}"></span>강점</h4>
+        <ul>${c.strengths.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+      </div>
+      <div class="dbox">
+        <h4><span class="dot" style="background:var(--green)"></span>잘 맞는 상황</h4>
+        <p>${esc(c.fit)}</p>
+      </div>
+      <div class="dbox warn">
+        <h4><span class="dot" style="background:var(--orange)"></span>과하게 쓰면</h4>
+        <p>${esc(c.overuse)}</p>
+      </div>
+      <div class="dbox warn">
+        <h4><span class="dot" style="background:var(--orange)"></span>너무 안 쓰면</h4>
+        <p>${esc(c.underuse)}</p>
+      </div>
+    </div>`;
+
+  // score bars
+  const max=Math.max(...MODE_ORDER.map(k=>sc[k]),1);
+  const bars=MODE_ORDER.map(k=>{
+    const md=MODES[k], v=sc[k], w=Math.round((v/12)*100);
+    const isDom=doms.includes(k);
+    return `<div class="scorerow">
+      <div class="nm" style="${isDom?'color:'+md.hex:''}">${md.name}</div>
+      <div class="track"><i style="width:${w}%;background:${md.hex};${isDom?'':'opacity:.62'}"></i></div>
+      <div class="vv">${v}</div>
+    </div>`;
+  }).join('');
+
+  const grid=gridSVG([{assert:cen.assert,coop:cen.coop,hex:primary.hex,strong:true,r:10,label:'내 위치 · '+primary.name}], true);
+
+  // TKI 모델 설명 (결과 화면에 배치 — 본인 유형과 연결되도록)
+  const modesList=MODE_ORDER.map(k=>{
+    const md=MODES[k], mine=doms.includes(k);
+    return `<div class="modeline"${mine?` style="border-color:${md.hex};background:#fbfdfb"`:''}>
+      <span class="swatch" style="background:${md.hex}"></span>
+      <div><b>${md.name}</b>${mine?` <span style="color:${md.hex};font-weight:700;font-size:12px">· 내 유형</span>`:''} <span class="tg">· ${md.tagline}</span></div>
+    </div>`;
+  }).join('');
+
+  return `${brandbar()}
+  ${saveStatusHTML(state.saveState||(CONFIGURED?'saving':'local'))}
+  <div class="card">
+    <div class="res-hero">
+      ${badge}
+      <div class="res-hd">
+        <div class="who">${esc(r.name)}${r.team?' · '+esc(r.team):''} 님의 갈등관리 유형</div>
+        <h2>${domNames}</h2>
+        <div class="tag">${primary.tagline}</div>
+      </div>
+    </div>
+    ${tied}
+    ${detail}
+  </div>
+
+  <div class="card">
+    <h2 class="sec">다섯 가지 방식 사용 점수</h2>
+    <p class="muted small" style="margin:6px 0 16px">각 유형 최대 12점 · 합계 30점. 막대가 길수록 평소 더 자주 쓰는 방식이에요.</p>
+    <div class="scorelist">${bars}</div>
+    <div class="flex-detail">유연성 : <b>${flex.t}</b> — ${flex.d}</div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">나의 갈등 좌표</h2>
+    <p class="muted small" style="margin:6px 0 10px">자기주장(세로) × 협력(가로) 위에서 나의 평균 위치예요. 가운데에 가까울수록 균형 잡힌 사용을 뜻합니다.</p>
+    <div class="gridwrap">${grid}</div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow">이 진단은</div>
+    <h2 class="sec" style="margin-top:8px">토마스–킬만 갈등관리 모델</h2>
+    <p class="muted small" style="margin:8px 0 0">갈등 대응은 아래 두 축으로 나뉘고, 그 조합이 다섯 가지 유형을 만들어요. 정답은 없으며, 모든 유형은 상황에 따라 각자의 쓸모가 있습니다.</p>
+    <div class="axis-explain">
+      <div class="axis-box"><b>자기주장 (Assertiveness)</b><p>내 관심사와 목표를 얼마나 적극적으로 챙기는가</p></div>
+      <div class="axis-box"><b>협력 (Cooperativeness)</b><p>상대의 관심사를 얼마나 함께 충족하려 하는가</p></div>
+    </div>
+    <h2 class="sec" style="margin-top:24px;font-size:18px">다섯 가지 유형</h2>
+    <div class="modegrid">${modesList}</div>
+    <p class="muted small" style="margin-top:16px;border-top:1px solid var(--line);padding-top:13px">※ 이 결과는 정식 심리검사가 아니라, 자기 이해와 팀 대화를 돕기 위한 <b>자기성찰용 도구</b>예요. 유형은 고정된 꼬리표가 아니라 상황에 따라 달라질 수 있습니다.</p>
+  </div>
+
+  <div class="btnrow no-print">
+    <button class="btn btn-ghost" data-action="printPage">결과 인쇄 / PDF 저장</button>
+    <button class="btn btn-primary grow" data-action="restart">처음으로 돌아가기</button>
+  </div>
+  ${footer()}`;
+}
+
+/* ---- ADMIN LOGIN ---- */
+function vAdminLogin(){
+  return `${brandbar()}
+  <div class="card center">
+    <div class="eyebrow">진행자 전용</div>
+    <h2 class="sec" style="margin-top:8px">집계 대시보드 접속</h2>
+    <p class="muted small" style="margin-top:8px">참여자 결과를 모아 팀 분포와 인사이트를 확인할 수 있어요. 진행자 비밀번호를 입력해 주세요.</p>
+    <div class="pwline">
+      <input id="f-pw" type="password" placeholder="진행자 비밀번호" class="" autocomplete="off">
+      <button class="btn btn-primary" data-action="adminAuth">접속</button>
+    </div>
+    ${state.pwError?`<div class="err">${esc(state.pwError)}</div>`:''}
+    <div class="flex-detail" style="margin-top:18px">참여자에게는 <b>주소에서 <code>?admin</code> 을 뺀 링크</b>를 공유하세요. 그 화면에는 진단만 보이고 집계는 노출되지 않습니다.</div>
+    ${ADMIN_MODE?'':`<div class="btnrow">
+      <button class="btn btn-ghost" data-action="backHome">처음으로</button>
+    </div>`}
+  </div>
+  ${footer()}`;
+}
+
+/* ---- ADMIN DASHBOARD ---- */
+function vAdminDash(){
+  if(state.adminLoading){
+    return `${brandbar()}
+    <div class="card"><div class="loader"><span class="spin"></span> 참여자 결과를 불러오는 중…</div></div>${footer()}`;
+  }
+  const ALL=state.adminResults||[];
+  const R=filteredAdmin();
+  const head=`${brandbar()}`;
+  const toolbar=`<div class="toolbar no-print">
+    <button class="btn btn-ghost" data-action="adminRefresh">새로고침</button>
+    <button class="btn btn-ghost" data-action="printPage">인쇄 / PDF</button>
+    <button class="btn btn-ghost" data-action="exportCsv" ${R.length?'':'disabled'}>CSV 내보내기 (선택 조건)</button>
+    <button class="btn btn-ghost" data-action="adminClear" ${ALL.length?'':'disabled'} style="color:#c0392b;border-color:#f0cfc9">전체 데이터 초기화</button>
+    <button class="btn btn-ghost" data-action="adminLogout">로그아웃</button>
+  </div>`;
+
+  if(state.adminError){
+    return `${head}
+    <div class="card">
+      <div class="empty">
+        <b>결과를 불러올 수 없어요</b>
+        ${esc(state.adminError)}
+      </div>
+      ${CONFIGURED?`<div class="insight" style="margin-top:2px">
+        <h4>점검 체크리스트</h4>
+        <p>① 파일 상단 <code>SHEET_API</code> 값이 <code>.../exec</code> 로 끝나는 배포 URL인가요?<br>
+           ② Apps Script 배포 시 <b>액세스 권한을 "모든 사용자"</b> 로 설정했나요?<br>
+           ③ 코드를 수정했다면 <b>새 버전으로 다시 배포</b>했나요?</p>
+      </div>`:''}
+    </div>
+    ${toolbar}${footer()}`;
+  }
+
+  if(ALL.length===0){
+    return `${head}
+    <div class="card">
+      <div class="empty">
+        <b>아직 모인 결과가 없어요</b>
+        참여자가 진단을 완료하면 이곳에 자동으로 집계됩니다.<br>같은 링크를 팀원들에게 공유해 주세요.
+      </div>
+    </div>
+    ${toolbar}${footer()}`;
+  }
+
+  // ── 날짜·회사 필터 UI ──
+  const fdates=uniqueDates_(ALL), fteams=uniqueTeams_(ALL);
+  const df=state.adminDateFilter||'', tf=state.adminTeamFilter||'';
+  const dateOpts=`<option value="">전체 기간</option>`+fdates.map(d=>`<option value="${d.key}"${df===d.key?' selected':''}>${d.label} · ${d.n}명</option>`).join('');
+  const teamOpts=`<option value="">전체 회사/팀</option>`+fteams.map(t=>`<option value="${esc(t.name)}"${tf===t.name?' selected':''}>${esc(t.name)} · ${t.n}명</option>`).join('');
+  const filterBar=`<div class="filterbar no-print">
+    <label>날짜 <select data-filter="date">${dateOpts}</select></label>
+    <label>회사/팀 <select data-filter="team">${teamOpts}</select></label>
+    <span class="fcount">${R.length}명 표시${(df||tf)?` · <button class="linkbtn" data-action="filterReset">필터 해제</button>`:''}</span>
+  </div>`;
+  const filterDesc=`${df?dayLabel(df):'전체 기간'}${tf?' · '+esc(tf):''}`;
+
+  if(R.length===0){
+    return `${head}
+    ${filterBar}
+    <div class="card"><div class="empty"><b>선택한 조건에 결과가 없어요</b>다른 날짜나 회사/팀을 고르거나 필터를 해제해 보세요.</div></div>
+    ${toolbar}${footer()}`;
+  }
+
+  // aggregate
+  const N=R.length;
+  const avg={}; MODE_ORDER.forEach(k=>avg[k]=0);
+  const distrib={}; MODE_ORDER.forEach(k=>distrib[k]=0);
+  R.forEach(r=>{
+    MODE_ORDER.forEach(k=>avg[k]+=(r.scores[k]||0));
+    const d=dominantModes(r.scores)[0]; // single top for distribution
+    distrib[d]++;
+  });
+  MODE_ORDER.forEach(k=>avg[k]=avg[k]/N);
+  const teamCentroid=centroid(Object.fromEntries(MODE_ORDER.map(k=>[k,avg[k]])));
+
+  // stats
+  const distinctDom=MODE_ORDER.filter(k=>distrib[k]>0).length;
+  const topTeamMode=MODE_ORDER.slice().sort((a,b)=>avg[b]-avg[a])[0];
+  const stats=`<div class="stat-row">
+    <div class="stat"><div class="num">${N}</div><div class="lab">참여 인원</div></div>
+    <div class="stat"><div class="num" style="color:${MODES[topTeamMode].hex}">${MODES[topTeamMode].name}</div><div class="lab">팀 평균 최다 유형</div></div>
+    <div class="stat"><div class="num">${distinctDom}<span style="font-size:16px;color:var(--ink-soft)">/5</span></div><div class="lab">분포된 유형 수</div></div>
+  </div>`;
+
+  // distribution bars (people count by dominant)
+  const distRows=MODE_ORDER.slice().sort((a,b)=>distrib[b]-distrib[a]).map(k=>{
+    const md=MODES[k], cnt=distrib[k], w=Math.round((cnt/N)*100);
+    return `<div class="drow">
+      <div class="nm" style="color:${md.hex}">${md.name}</div>
+      <div class="track"><i style="width:${Math.max(w,cnt?6:0)}%;background:${md.hex}"></i></div>
+      <div class="cnt">${cnt}명 · ${w}%</div>
+    </div>`;
+  }).join('');
+
+  // team avg bars
+  const avgRows=MODE_ORDER.map(k=>{
+    const md=MODES[k], v=avg[k], w=Math.round((v/12)*100);
+    return `<div class="scorerow">
+      <div class="nm" style="color:${md.hex}">${md.name}</div>
+      <div class="track"><i style="width:${w}%;background:${md.hex}"></i></div>
+      <div class="vv">${v.toFixed(1)}</div>
+    </div>`;
+  }).join('');
+
+  // team constellation grid
+  const pts=R.map((r,idx)=>{
+    const c=centroid(r.scores);
+    const d=dominantModes(r.scores)[0];
+    // small deterministic jitter to reduce overlap
+    const j=(idx%7-3)*0.012;
+    return {assert:Math.min(1,Math.max(0,c.assert+j)),coop:Math.min(1,Math.max(0,c.coop-j)),hex:MODES[d].hex,r:6.5,op:0.8,label:(r.name||'참여자')+(r.team?' ('+r.team+')':'')+' · '+MODES[d].name};
+  });
+  pts.push({assert:teamCentroid.assert,coop:teamCentroid.coop,hex:'#1C3A2E',strong:true,r:9,label:'팀 평균 위치'});
+  const grid=gridSVG(pts,false);
+
+  // insights
+  const ins=teamInsights(R,avg,distrib,N,topTeamMode);
+
+  // table
+  const rows=R.map(r=>{
+    const d=dominantModes(r.scores);
+    const md=MODES[d[0]];
+    const cells=MODE_ORDER.map(k=>{
+      const isTop=d.includes(k);
+      return `<td class="num-cell ${isTop?'top':''}">${r.scores[k]||0}</td>`;
+    }).join('');
+    return `<tr>
+      <td>${esc(r.name)}</td>
+      <td class="muted">${r.team?esc(r.team):'—'}</td>
+      <td><span class="pill" style="color:${md.hex}"><span class="dot" style="background:${md.hex}"></span>${d.map(x=>MODES[x].name).join('·')}</span></td>
+      ${cells}
+      <td class="muted small">${fmtDate(r.ts)}</td>
+    </tr>`;
+  }).join('');
+
+  return `${head}
+  ${filterBar}
+  <div class="card">
+    <div class="eyebrow">진행자 집계</div>
+    <h2 class="sec" style="margin-top:8px">팀 갈등관리 대시보드</h2>
+    <p class="muted small" style="margin:6px 0 16px"><b>${filterDesc}</b> · 총 ${N}명의 결과를 종합했어요.</p>
+    ${stats}
+  </div>
+
+  <div class="card">
+    <h2 class="sec">대표 유형 분포</h2>
+    <p class="muted small" style="margin:6px 0 14px">각 참여자의 가장 높은 유형 기준 인원수예요.</p>
+    <div class="distrib">${distRows}</div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">팀 평균 점수</h2>
+    <p class="muted small" style="margin:6px 0 14px">유형별 12점 만점, 팀 전체 평균입니다. <b>참고</b> — 강제 선택 방식이라 점수는 개인 안에서의 상대값이에요. 사람 간 평균은 정밀한 수치라기보다 <b>대략적 경향</b>으로 봐 주세요.</p>
+    <div class="scorelist">${avgRows}</div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">팀 갈등 좌표</h2>
+    <p class="muted small" style="margin:6px 0 10px">점 하나가 참여자 한 명, 진한 점이 팀 평균 위치예요. 한쪽에 몰려 있는지 고르게 퍼져 있는지 살펴보세요.</p>
+    <div class="gridwrap">${grid}</div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">팀 인사이트</h2>
+    <div class="insight">
+      <h4>지금 우리 팀은</h4>
+      ${ins.map(p=>`<p>${p}</p>`).join('')}
+    </div>
+    <h2 class="sec" style="margin-top:22px;font-size:17px">워크숍 토론 질문</h2>
+    <div class="guide-q">
+      <div class="gq"><b>1</b>내 대표 유형이 잘 통했던 갈등 상황과, 오히려 어려웠던 상황은 언제였나요?</div>
+      <div class="gq"><b>2</b>우리 팀에 가장 부족한 방식은 무엇일까요? 그게 없어서 생긴 일이 있었나요?</div>
+      <div class="gq"><b>3</b>나와 정반대 유형인 동료의 강점을 한 가지씩 찾아 말해 볼까요?</div>
+      <div class="gq"><b>4</b>다음에 팀 안에서 갈등이 생기면, 우리는 어떤 방식을 더 의식적으로 써 보면 좋을까요?</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">참여자별 상세</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th>이름</th><th>회사명/팀</th><th>대표 유형</th>
+          <th style="text-align:center">경쟁</th><th style="text-align:center">협력</th>
+          <th style="text-align:center">타협</th><th style="text-align:center">회피</th>
+          <th style="text-align:center">수용</th><th>응답 시각</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </div>
+
+  ${toolbar}${footer()}`;
+}
+
+function teamInsights(R,avg,distrib,N,topMode){
+  const out=[];
+  const ratio=k=>distrib[k]/N;
+  const lowest=MODE_ORDER.slice().sort((a,b)=>avg[a]-avg[b])[0];
+  const distinctDom=MODE_ORDER.filter(k=>distrib[k]>0).length;
+
+  // headline by top team mode
+  const headMap={
+    comp:'팀 전반에 <b>경쟁형</b> 성향이 두드러져요. 추진력과 결단은 강하지만, 힘겨루기나 소통 단절이 생기지 않게 서로의 입장을 충분히 듣는 장치가 필요합니다.',
+    collab:'팀 전반에 <b>협력형</b> 성향이 강해요. 함께 더 나은 답을 찾으려는 좋은 토양이 있습니다. 다만 모든 사안을 깊게 다루다 지치지 않도록, 사안의 크기에 맞게 속도를 조절해 보세요.',
+    compr:'팀 전반이 <b>타협형</b>에 익숙해요. 빠르고 공정한 결론에 강하지만, 절반에서 멈추느라 더 나은 통합적 해법을 놓치고 있지 않은지 가끔 점검할 필요가 있어요.',
+    avoid:'팀 전반에 <b>회피형</b> 성향이 높게 나타나요. 불필요한 충돌은 줄지만, 미뤄 둔 갈등이 곪을 수 있어요. 갈등을 안전하게 꺼내 놓는 자리를 의도적으로 만들어 보세요.',
+    accom:'팀 전반에 <b>수용형</b> 성향이 강해요. 화합과 배려가 큰 강점입니다. 다만 솔직한 이견이 묻히지 않도록, 반대 의견을 환영하는 분위기를 함께 만들어 가면 좋겠어요.',
+  };
+  out.push(headMap[topMode]);
+
+  // balance / concentration
+  if(distinctDom<=2){
+    out.push('대표 유형이 <b>한두 가지에 쏠려</b> 있어요. 비슷한 방식만 쓰면 같은 갈등에서 같은 한계에 부딪히기 쉽습니다. 부족한 접근을 보완할 역할을 의식적으로 정해 보세요.');
+  }else if(distinctDom>=4){
+    out.push('다섯 유형이 <b>고루 분포</b>해 있어요. 서로 다른 강점이 모여 있다는 뜻이라, 차이를 이해하기만 하면 갈등을 다루는 폭이 넓고 시너지가 큽니다.');
+  }
+
+  // specific flags
+  if(topMode!=='collab' && avg.collab===Math.min(...MODE_ORDER.map(k=>avg[k]))){
+    out.push('상대적으로 <b>협력형 사용이 가장 낮아요.</b> 모두의 관심사를 함께 푸는 경험이 적다는 신호일 수 있어요. 한 가지 사안만이라도 win-win을 목표로 깊이 다뤄 보는 연습을 권합니다.');
+  }
+  if(ratio('avoid')>=0.34 && topMode!=='avoid'){
+    out.push('회피형 비중도 적지 않아요(약 '+Math.round(ratio('avoid')*100)+'%). 표면적으로 조용해 보여도 속에 남은 이슈가 있을 수 있으니, 익명으로라도 의견을 모아 보면 좋아요.');
+  }
+  return out;
+}
+
+function footer(){
+  return `<div class="footnote no-print">
+    토마스–킬만 갈등관리 모델(자기주장 × 협력, 5가지 유형)을 바탕으로 위드아크가 자체 제작한 진단 도구입니다.<br>
+    워크숍 진행·문의 : 위드아크 WithArk · 010-4537-2382
+  </div>`;
+}
+
+/* =========================================================
+   ACTIONS
+   ========================================================= */
+function go(screen){ state.screen=screen; render(); }
+
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-action]');
+  if(!t) return;
+  const a=t.getAttribute('action')||t.dataset.action;
+  const action=t.dataset.action;
+  switch(action){
+    case 'start': go('info'); break;
+    case 'toGuide': go('guide'); break;
+    case 'toInfo': go('info'); break;
+    case 'backHome': resetQuiz(); state.adminAuthed=false; go('home'); break;
+
+    case 'beginQuiz': {
+      const nm=document.getElementById('f-name').value.trim();
+      const tm=document.getElementById('f-team').value.trim();
+      if(!nm || !tm){ const el=document.getElementById('info-err'); if(el) el.style.display='block'; return; }
+      state.name=nm; state.team=tm;
+      state.qIndex=0; state.answers=new Array(Q.length).fill(null);
+      go('quiz'); break;
+    }
+    case 'answer': {
+      state.answers[state.qIndex]=t.dataset.choice;
+      render(); break;
+    }
+    case 'prev': {
+      if(state.qIndex===0){ go('info'); }
+      else { state.qIndex--; render(); }
+      break;
+    }
+    case 'next': {
+      if(!state.answers[state.qIndex]) return;
+      if(state.qIndex<Q.length-1){ state.qIndex++; render(); }
+      else { finishQuiz(); }
+      break;
+    }
+    case 'restart': resetQuiz(); go('home'); break;
+
+    case 'openAdmin':
+      if(state.adminAuthed){ openAdminDash(); }
+      else { state.pwError=''; go('adminLogin'); }
+      break;
+    case 'adminAuth': {
+      const pw=document.getElementById('f-pw').value;
+      if(pw===ADMIN_PASS){ state.adminAuthed=true; state.pwError=''; openAdminDash(); }
+      else { state.pwError='비밀번호가 일치하지 않아요.'; render(); }
+      break;
+    }
+    case 'adminLogout': state.adminAuthed=false; state.pwError=''; state.adminResults=[]; go('adminLogin'); break;
+    case 'adminRefresh': openAdminDash(); break;
+    case 'adminClear': onAdminClear(); break;
+    case 'exportCsv': exportCsv(); break;
+    case 'printPage': window.print(); break;
+    case 'retrySave': saveResult(); break;
+    case 'filterReset': state.adminDateFilter=''; state.adminTeamFilter=''; render(); break;
+  }
+});
+
+// allow Enter to submit name / password
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter') return;
+  if(state.screen==='info'){ const b=document.querySelector('[data-action="beginQuiz"]'); if(b) b.click(); }
+  if(state.screen==='adminLogin'){ const b=document.querySelector('[data-action="adminAuth"]'); if(b) b.click(); }
+});
+
+// 진행자 대시보드 날짜·회사 필터 변경
+document.addEventListener('change',e=>{
+  const sel=e.target.closest('[data-filter]');
+  if(!sel) return;
+  const f=sel.getAttribute('data-filter');
+  if(f==='date') state.adminDateFilter=sel.value;
+  if(f==='team') state.adminTeamFilter=sel.value;
+  render();
+});
+
+function resetQuiz(){
+  state.name=''; state.team=''; state.qIndex=0;
+  state.answers=new Array(Q.length).fill(null); state.lastResult=null;
+}
+
+function finishQuiz(){
+  const scores=computeScores(state.answers);
+  const result={
+    id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),
+    name:state.name, team:state.team,
+    scores, dominant:dominantModes(scores),
+    ts:new Date().toISOString()
+  };
+  state.lastResult=result;
+  state.saveState = CONFIGURED ? 'saving' : 'local';
+  go('result');               // 결과는 즉시 표시
+  if(CONFIGURED) saveResult(); // 저장은 백그라운드 + 성공 확인
+}
+
+// 저장 + 서버 확인 + 1회 자동 재시도
+async function saveResult(){
+  setSaveState('saving');
+  try{
+    await Store.save(state.lastResult);
+    setSaveState('ok');
+  }catch(e){
+    try{
+      await new Promise(r=>setTimeout(r,1500));
+      await Store.save(state.lastResult);
+      setSaveState('ok');
+    }catch(e2){ console.error('save',e2); setSaveState('fail'); }
+  }
+}
+function setSaveState(s){
+  state.saveState=s;
+  const el=document.getElementById('save-status');
+  if(el) el.outerHTML=saveStatusHTML(s);
+}
+function saveStatusHTML(s){
+  if(s==='ok')    return `<div id="save-status" class="savebar ok no-print">✓ 결과가 저장됐어요 · 진행자 집계에 반영됩니다.</div>`;
+  if(s==='fail')  return `<div id="save-status" class="savebar fail no-print">결과 저장이 지연되고 있어요. 인터넷 연결을 확인한 뒤 <button class="linkbtn" data-action="retrySave">다시 저장</button>하거나 진행자에게 알려 주세요.</div>`;
+  if(s==='local') return `<div id="save-status" class="savebar local no-print">이 기기에만 임시 저장됨 · 집계 미연결 상태</div>`;
+  return `<div id="save-status" class="savebar saving no-print">결과 저장 중…</div>`;
+}
+
+function openAdminDash(){
+  state.screen='adminDash';
+  state.adminLoading=true;
+  render(); // shows loader, triggers doLoadAdmin
+}
+async function doLoadAdmin(){
+  state.adminError='';
+  try{ state.adminResults=await Store.loadAll(); }
+  catch(e){
+    state.adminResults=[];
+    state.adminError = CONFIGURED
+      ? '시트에서 결과를 불러오지 못했어요.'
+      : '아직 구글 시트가 연결되지 않았어요. 파일 상단 SHEET_API 에 Apps Script URL을 넣어 주세요.';
+  }
+  // 처음 열 때 기본 날짜 필터 = 가장 최근 세션(날짜)
+  if(state.adminDateFilter===undefined){
+    const ds=uniqueDates_(state.adminResults||[]);
+    state.adminDateFilter = ds.length ? ds[0].key : '';
+  }
+  state.adminLoading=false;
+  render();
+}
+
+async function onAdminClear(){
+  if(!confirm('모든 참여자 결과를 삭제할까요?\n삭제 전에 [CSV 내려받기]로 백업해 두는 것을 권장합니다.\n이 작업은 되돌릴 수 없습니다.')) return;
+  await Store.clearAll();
+  // no-cors라 직접 확인이 안 되므로 재조회로 반영 확인
+  try{ await new Promise(r=>setTimeout(r,1200)); state.adminResults=await Store.loadAll(); }
+  catch(_){ state.adminResults=[]; }
+  render();
+}
+
+function exportCsv(){
+  const head=['이름','회사명/팀','대표유형','경쟁','협력','타협','회피','수용','자기주장(0-100)','협력성(0-100)','응답시각'];
+  const lines=[head.join(',')];
+  filteredAdmin().forEach(r=>{
+    const d=dominantModes(r.scores).map(k=>MODES[k].name).join('/');
+    const c=centroid(r.scores);
+    const row=[
+      r.name, r.team||'', d,
+      r.scores.comp,r.scores.collab,r.scores.compr,r.scores.avoid,r.scores.accom,
+      Math.round(c.assert*100),Math.round(c.coop*100),
+      new Date(r.ts).toLocaleString('ko-KR')
+    ].map(v=>{
+      const s=String(v);
+      return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+    });
+    lines.push(row.join(','));
+  });
+  const csv='\uFEFF'+lines.join('\r\n'); // BOM for Excel(한글)
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const p=n=>String(n).padStart(2,'0'); const dt=new Date();
+  const tag=state.adminDateFilter ? state.adminDateFilter.replace(/-/g,'') : `${dt.getFullYear()}${p(dt.getMonth()+1)}${p(dt.getDate())}_전체`;
+  a.href=url;
+  a.download=`갈등관리진단_집계_${tag}.csv`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+/* boot */
+if(ADMIN_MODE){
+  state.screen = state.adminAuthed ? 'adminDash' : 'adminLogin';
+  if(state.screen==='adminDash') state.adminLoading=true;
+}
+render();
+</script>
+</body>
+</html>
