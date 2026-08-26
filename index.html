@@ -220,6 +220,21 @@
   .filterbar label{display:flex;align-items:center;gap:7px;font-weight:700;color:var(--ink-soft)}
   .filterbar select{font:inherit;font-weight:600;color:var(--ink);padding:6px 10px;border:1px solid #DAD3C4;border-radius:8px;background:#fff;max-width:210px}
   .fcount{color:var(--ink-soft);font-weight:600;margin-left:auto}
+  .glabel{font-weight:700;color:var(--ink-soft)}
+  .grp-controls{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:center;margin:16px 0 2px}
+  .seg{display:inline-flex;border:1px solid #DAD3C4;border-radius:9px;overflow:hidden}
+  .seg button{border:none;background:#fff;padding:7px 13px;font:inherit;font-weight:600;color:var(--ink-soft);cursor:pointer}
+  .seg button.on{background:var(--green);color:#fff}
+  .grp-num{width:66px;font:inherit;font-weight:700;text-align:center;padding:7px 8px;border:1px solid #DAD3C4;border-radius:8px}
+  .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-top:16px}
+  .grp{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#FCFBF8}
+  .grp-head{font-weight:800;margin-bottom:6px;font-size:15px}
+  .grp-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13.5px;border-top:1px solid #F0EDE4}
+  .grp-row:first-of-type{border-top:none}
+  .grp-row .gn{font-weight:700}
+  .grp-row .gt{font-size:11px}
+  .grp-row .gtype{margin-left:auto;font-weight:700;font-size:12px;white-space:nowrap}
+  .grp-row .dot{width:10px;height:10px;border-radius:50%;flex:none}
 
   @media (max-width:620px){
     .wrap{padding:18px 15px 70px}
@@ -445,6 +460,29 @@ function filteredAdmin(){      // 현재 필터가 적용된 결과 (대시보�
   const all=state.adminResults||[];
   const df=state.adminDateFilter||'', tf=state.adminTeamFilter||'';
   return all.filter(r=>(!df || dayKey(r.ts)===df) && (!tf || (r.team||'').trim()===tf));
+}
+
+// ── 자동 조편성 ──
+function shuffle_(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; }
+function captureGrpNum(){       // 재렌더 전에 입력한 숫자를 보존
+  const el=document.getElementById('grp-num'); if(!el) return;
+  const v=Math.max(1, parseInt(el.value,10)||1);
+  if((state.groupBy||'count')==='size') state.groupSize=v; else state.groupCount=v;
+}
+function computeGroups(){
+  const people=filteredAdmin(); const N=people.length;
+  if(N===0){ state.groups=[]; return; }
+  const by=state.groupBy||'count';
+  const G = by==='size' ? Math.max(1,Math.ceil(N/Math.max(1,state.groupSize||5)))
+                        : Math.max(1,Math.min(state.groupCount||4, N));
+  // 대표유형별로 모은 뒤, 유형 안에서 무작위 섞기 (누를 때마다 다르게)
+  const buckets={}; MODE_ORDER.forEach(k=>buckets[k]=[]);
+  people.forEach(p=>{ buckets[dominantModes(p.scores)[0]].push(p); });
+  const ordered=[]; MODE_ORDER.forEach(k=>{ shuffle_(buckets[k]); ordered.push(...buckets[k]); });
+  const groups=Array.from({length:G},()=>[]);
+  if((state.groupMode||'mix')==='mix') ordered.forEach((p,i)=>groups[i%G].push(p));           // 다양성: 라운드로빈 → 유형 분산
+  else                                 ordered.forEach((p,i)=>groups[Math.floor(i*G/N)].push(p)); // 동질: 연속 배분 → 유형 밀집
+  state.groups=groups;
 }
 
 /* =========================================================
@@ -952,6 +990,31 @@ function vAdminDash(){
     </tr>`;
   }).join('');
 
+  const gm=state.groupMode||'mix', gb=state.groupBy||'count';
+  const groupsOut=(state.groups&&state.groups.length)?`<div class="groups">${state.groups.map((g,i)=>`<div class="grp"><div class="grp-head">${i+1}조 <span class="muted">· ${g.length}명</span></div>${g.map(p=>{const d=dominantModes(p.scores);const hx=d.length>1?MIXED_HEX:MODES[d[0]].hex;return `<div class="grp-row"><span class="dot" style="background:${hx}"></span><span class="gn">${esc(p.name)}</span>${p.team?`<span class="gt muted">${esc(p.team)}</span>`:''}<span class="gtype" style="color:${hx}">${d.map(x=>MODES[x].name).join('·')}</span></div>`;}).join('')}</div>`).join('')}</div>`:`<p class="muted small" style="margin-top:6px">방식·기준을 고르고 <b>조 편성</b>을 누르면 자동으로 나눠져요.</p>`;
+  const groupCard=`<div class="card">
+    <div class="eyebrow">자동 조편성</div>
+    <h2 class="sec" style="margin-top:8px">조 나누기</h2>
+    <p class="muted small" style="margin:6px 0 0">지금 화면에 보이는 <b>${N}명</b> 기준이에요 (위 날짜·회사 필터 적용). 다양성 조는 각 조에 유형이 골고루 섞이도록 배정합니다.</p>
+    <div class="grp-controls no-print">
+      <span class="glabel">방식</span>
+      <span class="seg">
+        <button class="${gm==='mix'?'on':''}" data-action="grpModeMix">다양성 섞기</button>
+        <button class="${gm==='match'?'on':''}" data-action="grpModeMatch">동질 모으기</button>
+      </span>
+      <span class="glabel">기준</span>
+      <span class="seg">
+        <button class="${gb==='count'?'on':''}" data-action="grpByCount">조 개수</button>
+        <button class="${gb==='size'?'on':''}" data-action="grpBySize">조당 인원</button>
+      </span>
+      <input id="grp-num" class="grp-num" type="number" min="1" value="${gb==='size'?(state.groupSize||5):(state.groupCount||4)}">
+      <span class="muted small">${gb==='size'?'명씩':'개 조'}</span>
+      <button class="btn btn-primary" data-action="makeGroups" style="padding:8px 16px">조 편성</button>
+      ${(state.groups&&state.groups.length)?`<button class="btn btn-ghost" data-action="makeGroups" style="padding:8px 14px">다시 섞기</button>`:''}
+    </div>
+    ${groupsOut}
+  </div>`;
+
   return `${head}
   ${filterBar}
   <div class="card">
@@ -960,6 +1023,7 @@ function vAdminDash(){
     <p class="muted small" style="margin:6px 0 16px"><b>${filterDesc}</b> · 총 ${N}명의 결과를 종합했어요.</p>
     ${stats}
   </div>
+  ${groupCard}
 
   <div class="card">
     <h2 class="sec">대표 유형 분포</h2>
@@ -1109,7 +1173,12 @@ document.addEventListener('click',e=>{
     case 'exportCsv': exportCsv(); break;
     case 'printPage': window.print(); break;
     case 'retrySave': saveResult(); break;
-    case 'filterReset': state.adminDateFilter=''; state.adminTeamFilter=''; render(); break;
+    case 'filterReset': state.adminDateFilter=''; state.adminTeamFilter=''; state.groups=null; render(); break;
+    case 'grpModeMix': captureGrpNum(); state.groupMode='mix'; if(state.groups&&state.groups.length)computeGroups(); render(); break;
+    case 'grpModeMatch': captureGrpNum(); state.groupMode='match'; if(state.groups&&state.groups.length)computeGroups(); render(); break;
+    case 'grpByCount': captureGrpNum(); state.groupBy='count'; if(state.groups&&state.groups.length)computeGroups(); render(); break;
+    case 'grpBySize': captureGrpNum(); state.groupBy='size'; if(state.groups&&state.groups.length)computeGroups(); render(); break;
+    case 'makeGroups': captureGrpNum(); computeGroups(); render(); break;
   }
 });
 
@@ -1127,6 +1196,7 @@ document.addEventListener('change',e=>{
   const f=sel.getAttribute('data-filter');
   if(f==='date') state.adminDateFilter=sel.value;
   if(f==='team') state.adminTeamFilter=sel.value;
+  state.groups=null;
   render();
 });
 
@@ -1194,6 +1264,7 @@ async function doLoadAdmin(){
     const ds=uniqueDates_(state.adminResults||[]);
     state.adminDateFilter = ds.length ? ds[0].key : '';
   }
+  state.groups=null;
   state.adminLoading=false;
   render();
 }
