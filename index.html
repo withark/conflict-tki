@@ -235,6 +235,9 @@
   .grp-row .gt{font-size:11px}
   .grp-row .gtype{margin-left:auto;font-weight:700;font-size:12px;white-space:nowrap}
   .grp-row .dot{width:10px;height:10px;border-radius:50%;flex:none}
+  .grp-comp{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px}
+  .gchip{font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px}
+  .capturing .no-print{display:none !important}
 
   @media (max-width:620px){
     .wrap{padding:18px 15px 70px}
@@ -254,6 +257,8 @@
     .wrap{padding:0;max-width:100%}
   }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
   <div class="wrap" id="app"></div>
@@ -483,6 +488,39 @@ function computeGroups(){
   if((state.groupMode||'mix')==='mix') ordered.forEach((p,i)=>groups[i%G].push(p));           // 다양성: 라운드로빈 → 유형 분산
   else                                 ordered.forEach((p,i)=>groups[Math.floor(i*G/N)].push(p)); // 동질: 연속 배분 → 유형 밀집
   state.groups=groups;
+}
+
+// ── 진행자 화면 이미지/PDF 내려받기 (프로젝터·슬라이드용) ──
+async function captureRoot(){
+  const el=app();
+  el.classList.add('capturing');                       // 버튼·필터(.no-print) 숨기고 캡처
+  await new Promise(r=>setTimeout(r,80));
+  try{
+    return await html2canvas(el,{scale:2,backgroundColor:'#FBF8F1',useCORS:true,logging:false});
+  } finally { el.classList.remove('capturing'); }
+}
+function grpTag_(){ return (state.adminDateFilter||'전체')+(state.adminTeamFilter?'_'+state.adminTeamFilter:''); }
+async function downloadImage(){
+  if(typeof html2canvas==='undefined'){ alert('이미지 라이브러리를 아직 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.'); return; }
+  try{
+    const canvas=await captureRoot();
+    const a=document.createElement('a');
+    a.href=canvas.toDataURL('image/png');
+    a.download='갈등관리_집계_'+grpTag_()+'.png';
+    document.body.appendChild(a); a.click(); a.remove();
+  }catch(e){ console.error(e); alert('이미지 저장 중 문제가 발생했어요. 다시 시도해 주세요.'); }
+}
+async function downloadPdf(){
+  if(typeof html2canvas==='undefined' || !window.jspdf){ alert('PDF 라이브러리를 아직 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.'); return; }
+  try{
+    const canvas=await captureRoot();
+    const img=canvas.toDataURL('image/png');
+    const { jsPDF }=window.jspdf;
+    const w=canvas.width, h=canvas.height;
+    const pdf=new jsPDF({orientation:w>h?'landscape':'portrait', unit:'px', format:[w,h]});
+    pdf.addImage(img,'PNG',0,0,w,h);
+    pdf.save('갈등관리_집계_'+grpTag_()+'.pdf');
+  }catch(e){ console.error(e); alert('PDF 저장 중 문제가 발생했어요. 다시 시도해 주세요.'); }
 }
 
 /* =========================================================
@@ -813,7 +851,6 @@ function vResult(){
   </div>
 
   <div class="btnrow no-print">
-    <button class="btn btn-ghost" data-action="printPage">결과 인쇄 / PDF 저장</button>
     <button class="btn btn-primary grow" data-action="restart">처음으로 돌아가기</button>
   </div>
   ${footer()}`;
@@ -850,7 +887,8 @@ function vAdminDash(){
   const head=`${brandbar()}`;
   const toolbar=`<div class="toolbar no-print">
     <button class="btn btn-ghost" data-action="adminRefresh">새로고침</button>
-    <button class="btn btn-ghost" data-action="printPage">인쇄 / PDF</button>
+    <button class="btn btn-ghost" data-action="downloadImage">이미지 다운로드</button>
+    <button class="btn btn-ghost" data-action="downloadPdf">PDF 다운로드</button>
     <button class="btn btn-ghost" data-action="exportCsv" ${R.length?'':'disabled'}>CSV 내보내기 (선택 조건)</button>
     <button class="btn btn-ghost" data-action="adminClear" ${ALL.length?'':'disabled'} style="color:#c0392b;border-color:#f0cfc9">전체 데이터 초기화</button>
     <button class="btn btn-ghost" data-action="adminLogout">로그아웃</button>
@@ -991,7 +1029,11 @@ function vAdminDash(){
   }).join('');
 
   const gm=state.groupMode||'mix', gb=state.groupBy||'count';
-  const groupsOut=(state.groups&&state.groups.length)?`<div class="groups">${state.groups.map((g,i)=>`<div class="grp"><div class="grp-head">${i+1}조 <span class="muted">· ${g.length}명</span></div>${g.map(p=>{const d=dominantModes(p.scores);const hx=d.length>1?MIXED_HEX:MODES[d[0]].hex;return `<div class="grp-row"><span class="dot" style="background:${hx}"></span><span class="gn">${esc(p.name)}</span>${p.team?`<span class="gt muted">${esc(p.team)}</span>`:''}<span class="gtype" style="color:${hx}">${d.map(x=>MODES[x].name).join('·')}</span></div>`;}).join('')}</div>`).join('')}</div>`:`<p class="muted small" style="margin-top:6px">방식·기준을 고르고 <b>조 편성</b>을 누르면 자동으로 나눠져요.</p>`;
+  const groupsOut=(state.groups&&state.groups.length)?`<div class="groups">${state.groups.map((g,i)=>{
+    const comp={}; g.forEach(p=>{const k=dominantModes(p.scores)[0]; comp[k]=(comp[k]||0)+1;});
+    const chips=MODE_ORDER.filter(k=>comp[k]).map(k=>`<span class="gchip" style="background:${MODES[k].hex}1a;color:${MODES[k].hex}">${MODES[k].name} ${comp[k]}</span>`).join('');
+    return `<div class="grp"><div class="grp-head">${i+1}조 <span class="muted">· ${g.length}명</span></div><div class="grp-comp">${chips}</div>${g.map(p=>{const d=dominantModes(p.scores);const hx=d.length>1?MIXED_HEX:MODES[d[0]].hex;return `<div class="grp-row"><span class="dot" style="background:${hx}"></span><span class="gn">${esc(p.name)}</span>${p.team?`<span class="gt muted">${esc(p.team)}</span>`:''}<span class="gtype" style="color:${hx}">${d.map(x=>MODES[x].name).join('·')}</span></div>`;}).join('')}</div>`;
+  }).join('')}</div>`:`<p class="muted small" style="margin-top:6px">방식·기준을 고르고 <b>조 편성</b>을 누르면 자동으로 나눠져요.</p>`;
   const groupCard=`<div class="card">
     <div class="eyebrow">자동 조편성</div>
     <h2 class="sec" style="margin-top:8px">조 나누기</h2>
@@ -1179,6 +1221,8 @@ document.addEventListener('click',e=>{
     case 'grpByCount': captureGrpNum(); state.groupBy='count'; if(state.groups&&state.groups.length)computeGroups(); render(); break;
     case 'grpBySize': captureGrpNum(); state.groupBy='size'; if(state.groups&&state.groups.length)computeGroups(); render(); break;
     case 'makeGroups': captureGrpNum(); computeGroups(); render(); break;
+    case 'downloadImage': downloadImage(); break;
+    case 'downloadPdf': downloadPdf(); break;
   }
 });
 
