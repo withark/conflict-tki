@@ -238,6 +238,8 @@
   .grp-comp{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px}
   .gchip{font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px}
   .capturing .no-print{display:none !important}
+  .export-ov{position:fixed;inset:0;background:rgba(28,58,46,.5);display:flex;align-items:center;justify-content:center;z-index:9999}
+  .export-box{background:#fff;border-radius:14px;padding:18px 24px;display:flex;align-items:center;gap:12px;font-weight:800;color:var(--ink);box-shadow:0 12px 44px rgba(0,0,0,.22)}
 
   @media (max-width:620px){
     .wrap{padding:18px 15px 70px}
@@ -257,8 +259,6 @@
     .wrap{padding:0;max-width:100%}
   }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
   <div class="wrap" id="app"></div>
@@ -491,36 +491,90 @@ function computeGroups(){
 }
 
 // ── 진행자 화면 이미지/PDF 내려받기 (프로젝터·슬라이드용) ──
+// 캡처 라이브러리는 진행자가 다운로드할 때만 불러옴 (참여자 화면 가볍게)
+function loadScript_(src){
+  return new Promise((res,rej)=>{
+    if([...document.scripts].some(s=>s.src===src)) return res();
+    const s=document.createElement('script'); s.src=src; s.onload=()=>res(); s.onerror=()=>rej(new Error('load fail')); document.head.appendChild(s);
+  });
+}
+async function ensureCaptureLibs_(){
+  if(typeof html2canvas==='undefined') await loadScript_('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  if(!window.jspdf) await loadScript_('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+}
+function exportOverlay_(msg){
+  let o=document.getElementById('export-ov');
+  if(!o){ o=document.createElement('div'); o.id='export-ov'; o.className='export-ov'; o.innerHTML='<div class="export-box"><div class="spin"></div><span></span></div>'; document.body.appendChild(o); }
+  o.querySelector('span').textContent=msg; o.style.display='flex';
+  return ()=>{ o.style.display='none'; };
+}
+// SVG는 html2canvas가 자주 못 그리므로, 캡처 직전 이미지로 변환 후 복원
+async function rasterizeSvgs_(root){
+  const svgs=[...root.querySelectorAll('svg')]; const restore=[];
+  for(const svg of svgs){
+    const rect=svg.getBoundingClientRect();
+    const w=Math.max(1,Math.round(rect.width)), h=Math.max(1,Math.round(rect.height));
+    const clone=svg.cloneNode(true);
+    clone.setAttribute('width',w); clone.setAttribute('height',h);
+    if(!clone.getAttribute('xmlns')) clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+    const xml=new XMLSerializer().serializeToString(clone);
+    const url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(xml);
+    let dataUrl;
+    try{
+      const im=await new Promise((res,rej)=>{ const x=new Image(); x.onload=()=>res(x); x.onerror=rej; x.src=url; });
+      const c=document.createElement('canvas'); c.width=w*2; c.height=h*2;
+      const ctx=c.getContext('2d'); ctx.scale(2,2); ctx.drawImage(im,0,0,w,h);
+      dataUrl=c.toDataURL('image/png');
+    }catch(e){ continue; }
+    const rimg=document.createElement('img');
+    rimg.src=dataUrl; rimg.style.width=w+'px'; rimg.style.height=h+'px'; rimg.style.display='block';
+    svg.parentNode.replaceChild(rimg,svg); restore.push([rimg,svg]);
+  }
+  return ()=>restore.forEach(([r,orig])=>{ if(r.parentNode) r.parentNode.replaceChild(orig,r); });
+}
 async function captureRoot(){
   const el=app();
-  el.classList.add('capturing');                       // 버튼·필터(.no-print) 숨기고 캡처
-  await new Promise(r=>setTimeout(r,80));
+  const restoreSvg=await rasterizeSvgs_(el);
+  el.classList.add('capturing');
+  await new Promise(r=>setTimeout(r,90));
+  const maxDim=11000; // 대용량(인원 많음) 시 캔버스 초과로 빈 이미지 나오는 것 방지
+  const scale=Math.max(0.5, Math.min(2, maxDim/Math.max(el.scrollWidth, el.scrollHeight)));
   try{
-    return await html2canvas(el,{scale:2,backgroundColor:'#FBF8F1',useCORS:true,logging:false});
-  } finally { el.classList.remove('capturing'); }
+    return await html2canvas(el,{scale, backgroundColor:'#FBF8F1', useCORS:true, logging:false,
+      width:el.scrollWidth, height:el.scrollHeight, windowWidth:el.scrollWidth});
+  } finally { el.classList.remove('capturing'); restoreSvg(); }
 }
 function grpTag_(){ return (state.adminDateFilter||'전체')+(state.adminTeamFilter?'_'+state.adminTeamFilter:''); }
 async function downloadImage(){
-  if(typeof html2canvas==='undefined'){ alert('이미지 라이브러리를 아직 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.'); return; }
+  if(state.exporting) return; state.exporting=true;
+  const done=exportOverlay_('이미지 생성 중…');
   try{
+    await ensureCaptureLibs_();
     const canvas=await captureRoot();
     const a=document.createElement('a');
     a.href=canvas.toDataURL('image/png');
     a.download='갈등관리_집계_'+grpTag_()+'.png';
     document.body.appendChild(a); a.click(); a.remove();
-  }catch(e){ console.error(e); alert('이미지 저장 중 문제가 발생했어요. 다시 시도해 주세요.'); }
+  }catch(e){ console.error(e); alert('이미지 저장 중 문제가 발생했어요. 인원이 아주 많으면 날짜·회사 필터로 대상을 좁힌 뒤 다시 시도해 주세요.'); }
+  finally{ done(); state.exporting=false; }
 }
 async function downloadPdf(){
-  if(typeof html2canvas==='undefined' || !window.jspdf){ alert('PDF 라이브러리를 아직 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.'); return; }
+  if(state.exporting) return; state.exporting=true;
+  const done=exportOverlay_('PDF 생성 중…');
   try{
+    await ensureCaptureLibs_();
     const canvas=await captureRoot();
     const img=canvas.toDataURL('image/png');
     const { jsPDF }=window.jspdf;
-    const w=canvas.width, h=canvas.height;
-    const pdf=new jsPDF({orientation:w>h?'landscape':'portrait', unit:'px', format:[w,h]});
-    pdf.addImage(img,'PNG',0,0,w,h);
+    const pdf=new jsPDF('p','mm','a4');          // A4 세로, 길면 여러 페이지로 자동 분할
+    const pw=210, ph=297;
+    const ih=canvas.height*pw/canvas.width;
+    let heightLeft=ih, position=0;
+    pdf.addImage(img,'PNG',0,position,pw,ih); heightLeft-=ph;
+    while(heightLeft>0){ position-=ph; pdf.addPage(); pdf.addImage(img,'PNG',0,position,pw,ih); heightLeft-=ph; }
     pdf.save('갈등관리_집계_'+grpTag_()+'.pdf');
-  }catch(e){ console.error(e); alert('PDF 저장 중 문제가 발생했어요. 다시 시도해 주세요.'); }
+  }catch(e){ console.error(e); alert('PDF 저장 중 문제가 발생했어요. 인원이 아주 많으면 날짜·회사 필터로 대상을 좁힌 뒤 다시 시도해 주세요.'); }
+  finally{ done(); state.exporting=false; }
 }
 
 /* =========================================================
@@ -1030,8 +1084,8 @@ function vAdminDash(){
 
   const gm=state.groupMode||'mix', gb=state.groupBy||'count';
   const groupsOut=(state.groups&&state.groups.length)?`<div class="groups">${state.groups.map((g,i)=>{
-    const comp={}; g.forEach(p=>{const k=dominantModes(p.scores)[0]; comp[k]=(comp[k]||0)+1;});
-    const chips=MODE_ORDER.filter(k=>comp[k]).map(k=>`<span class="gchip" style="background:${MODES[k].hex}1a;color:${MODES[k].hex}">${MODES[k].name} ${comp[k]}</span>`).join('');
+    const comp={}; let mixedN=0; g.forEach(p=>{const d=dominantModes(p.scores); if(d.length>1) mixedN++; else comp[d[0]]=(comp[d[0]]||0)+1;});
+    const chips=MODE_ORDER.filter(k=>comp[k]).map(k=>`<span class="gchip" style="background:${MODES[k].hex}1a;color:${MODES[k].hex}">${MODES[k].name} ${comp[k]}</span>`).join('')+(mixedN?`<span class="gchip" style="background:${MIXED_HEX}1a;color:${MIXED_HEX}">복합 ${mixedN}</span>`:'');
     return `<div class="grp"><div class="grp-head">${i+1}조 <span class="muted">· ${g.length}명</span></div><div class="grp-comp">${chips}</div>${g.map(p=>{const d=dominantModes(p.scores);const hx=d.length>1?MIXED_HEX:MODES[d[0]].hex;return `<div class="grp-row"><span class="dot" style="background:${hx}"></span><span class="gn">${esc(p.name)}</span>${p.team?`<span class="gt muted">${esc(p.team)}</span>`:''}<span class="gtype" style="color:${hx}">${d.map(x=>MODES[x].name).join('·')}</span></div>`;}).join('')}</div>`;
   }).join('')}</div>`:`<p class="muted small" style="margin-top:6px">방식·기준을 고르고 <b>조 편성</b>을 누르면 자동으로 나눠져요.</p>`;
   const groupCard=`<div class="card">
