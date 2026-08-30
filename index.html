@@ -220,6 +220,7 @@
   .filterbar label{display:flex;align-items:center;gap:7px;font-weight:700;color:var(--ink-soft)}
   .filterbar select{font:inherit;font-weight:600;color:var(--ink);padding:6px 10px;border:1px solid #DAD3C4;border-radius:8px;background:#fff;max-width:210px}
   .fcount{color:var(--ink-soft);font-weight:600;margin-left:auto}
+  .pubtoggle{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-bottom:16px;padding:12px 16px;background:#fff;border:1px dashed #BFD4C6;border-radius:14px}
   .glabel{font-weight:700;color:var(--ink-soft)}
   .grp-controls{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:center;margin:16px 0 2px}
   .seg{display:inline-flex;border:1px solid #DAD3C4;border-radius:9px;overflow:hidden}
@@ -1111,15 +1112,21 @@ function vAdminDash(){
     ${groupsOut}
   </div>`;
 
+  const pubToggle=`<div class="pubtoggle no-print">
+    <button class="btn ${state.publicMode?'btn-primary':'btn-ghost'}" data-action="togglePublic">${state.publicMode?'공개용(익명) 화면 해제':'공개용(익명) 화면으로 보기'}</button>
+    <span class="muted small">${state.publicMode?'지금은 익명 화면 — 이름·개인표·조편성이 숨겨져 프로젝터에 띄우기 안전해요.':'켜면 이름·개인표·조편성을 숨기고 팀 전체 지형(분포·좌표·인사이트)만 보여줘요.'}</span>
+  </div>`;
+
   return `${head}
   ${filterBar}
+  ${pubToggle}
   <div class="card">
     <div class="eyebrow">진행자 집계</div>
     <h2 class="sec" style="margin-top:8px">팀 갈등관리 대시보드</h2>
     <p class="muted small" style="margin:6px 0 16px"><b>${filterDesc}</b> · 총 ${N}명의 결과를 종합했어요.</p>
     ${stats}
   </div>
-  ${groupCard}
+  ${state.publicMode?'':groupCard}
 
   <div class="card">
     <h2 class="sec">대표 유형 분포</h2>
@@ -1154,7 +1161,7 @@ function vAdminDash(){
     </div>
   </div>
 
-  <div class="card">
+  ${state.publicMode?'':`<div class="card">
     <h2 class="sec">참여자별 상세</h2>
     <div class="tablewrap">
       <table>
@@ -1167,7 +1174,7 @@ function vAdminDash(){
         <tbody>${rows}</tbody>
       </table>
     </div>
-  </div>
+  </div>`}
 
   ${toolbar}${footer()}`;
 }
@@ -1277,6 +1284,7 @@ document.addEventListener('click',e=>{
     case 'makeGroups': captureGrpNum(); computeGroups(); render(); break;
     case 'downloadImage': downloadImage(); break;
     case 'downloadPdf': downloadPdf(); break;
+    case 'togglePublic': state.publicMode=!state.publicMode; render(); break;
   }
 });
 
@@ -1363,6 +1371,7 @@ async function doLoadAdmin(){
     state.adminDateFilter = ds.length ? ds[0].key : '';
   }
   state.groups=null;
+  state.publicMode=false;
   state.adminLoading=false;
   render();
 }
