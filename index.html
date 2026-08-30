@@ -577,6 +577,40 @@ async function downloadPdf(){
   }catch(e){ console.error(e); alert('PDF 저장 중 문제가 발생했어요. 인원이 아주 많으면 날짜·회사 필터로 대상을 좁힌 뒤 다시 시도해 주세요.'); }
   finally{ done(); state.exporting=false; }
 }
+async function ensurePptxLib_(){
+  if(!window.PptxGenJS) await loadScript_('https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js');
+}
+// 각 항목(카드)을 슬라이드 한 장씩으로 만든 PPT — 필요한 장만 골라 쓰기 좋게. 조편성은 편성했을 때만 별도 장.
+async function downloadPptx(){
+  if(state.exporting) return; state.exporting=true;
+  const done=exportOverlay_('PPT 생성 중… (항목별로 나눠요)');
+  const el=app(); let restoreSvg=null;
+  try{
+    await ensureCaptureLibs_(); await ensurePptxLib_();
+    const Pptx=window.PptxGenJS;
+    if(!Pptx) throw new Error('pptx lib');
+    restoreSvg=await rasterizeSvgs_(el);
+    el.classList.add('capturing');
+    await new Promise(r=>setTimeout(r,90));
+    // 대상 카드: 조편성 카드는 실제로 편성됐을 때만 포함
+    const cards=[...el.querySelectorAll('.card')].filter(c=>{
+      const isGroup=c.querySelector('.grp-controls');
+      return !(isGroup && !c.querySelector('.groups'));
+    });
+    const pptx=new Pptx();
+    pptx.defineLayout({name:'WA', width:13.33, height:7.5}); pptx.layout='WA';
+    const maxW=12.3, maxH=6.55;
+    for(const card of cards){
+      const canvas=await html2canvas(card,{scale:2, backgroundColor:'#FFFFFF', useCORS:true, logging:false});
+      const aspect=canvas.width/canvas.height;
+      let w=maxW, h=w/aspect; if(h>maxH){ h=maxH; w=h*aspect; }
+      const slide=pptx.addSlide(); slide.background={color:'FBF8F1'};
+      slide.addImage({ data:canvas.toDataURL('image/png'), x:(13.33-w)/2, y:(7.5-h)/2, w, h });
+    }
+    await pptx.writeFile({ fileName:'갈등관리_집계_'+grpTag_()+'.pptx' });
+  }catch(e){ console.error(e); alert('PPT 저장 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.'); }
+  finally{ el.classList.remove('capturing'); if(restoreSvg) restoreSvg(); done(); state.exporting=false; }
+}
 
 /* =========================================================
    SCORING
@@ -942,8 +976,8 @@ function vAdminDash(){
   const head=`${brandbar()}`;
   const toolbar=`<div class="toolbar no-print">
     <button class="btn btn-ghost" data-action="adminRefresh">새로고침</button>
-    <button class="btn btn-ghost" data-action="downloadImage">이미지 다운로드</button>
-    <button class="btn btn-ghost" data-action="downloadPdf">PDF 다운로드</button>
+    <button class="btn btn-ghost" data-action="downloadImage">이미지 (전체 1장)</button>
+    <button class="btn btn-ghost" data-action="downloadPptx">PPT 다운로드 (항목별)</button>
     <button class="btn btn-ghost" data-action="exportCsv" ${R.length?'':'disabled'}>CSV 내보내기 (선택 조건)</button>
     <button class="btn btn-ghost" data-action="adminClear" ${ALL.length?'':'disabled'} style="color:#c0392b;border-color:#f0cfc9">전체 데이터 초기화</button>
     <button class="btn btn-ghost" data-action="adminLogout">로그아웃</button>
@@ -1283,7 +1317,7 @@ document.addEventListener('click',e=>{
     case 'grpBySize': captureGrpNum(); state.groupBy='size'; if(state.groups&&state.groups.length)computeGroups(); render(); break;
     case 'makeGroups': captureGrpNum(); computeGroups(); render(); break;
     case 'downloadImage': downloadImage(); break;
-    case 'downloadPdf': downloadPdf(); break;
+    case 'downloadPptx': downloadPptx(); break;
     case 'togglePublic': state.publicMode=!state.publicMode; render(); break;
   }
 });
