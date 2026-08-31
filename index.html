@@ -227,7 +227,7 @@
   .seg button{border:none;background:#fff;padding:7px 13px;font:inherit;font-weight:600;color:var(--ink-soft);cursor:pointer}
   .seg button.on{background:var(--green);color:#fff}
   .grp-num{width:66px;font:inherit;font-weight:700;text-align:center;padding:7px 8px;border:1px solid #DAD3C4;border-radius:8px}
-  .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-top:16px}
+  .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:12px;margin-top:16px}
   .grp{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#FCFBF8}
   .grp-head{font-weight:800;margin-bottom:6px;font-size:15px}
   .grp-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13.5px;border-top:1px solid #F0EDE4}
@@ -238,6 +238,15 @@
   .grp-row .dot{width:10px;height:10px;border-radius:50%;flex:none}
   .grp-comp{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px}
   .gchip{font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px}
+  .gstats{display:flex;gap:12px;align-items:center;margin-top:11px;padding-top:10px;border-top:1px solid #EFEBE0}
+  .gsbars{flex:1;min-width:0}
+  .gsrow{display:flex;align-items:center;gap:7px;margin-bottom:3px}
+  .gsn{font-size:10.5px;font-weight:800;width:26px;flex:none}
+  .gstrack{flex:1;height:7px;background:#EDE7DA;border-radius:999px;overflow:hidden}
+  .gstrack i{display:block;height:100%;border-radius:999px}
+  .gsv{font-size:10.5px;font-weight:700;color:var(--ink-soft);width:22px;text-align:right;flex:none}
+  .gsgrid{flex:none;text-align:center}
+  .gslabel{display:block;font-size:10px;color:var(--ink-soft);margin-top:2px}
   .capturing .no-print{display:none !important}
   .export-ov{position:fixed;inset:0;background:rgba(28,58,46,.5);display:flex;align-items:center;justify-content:center;z-index:9999}
   .export-box{background:#fff;border-radius:14px;padding:18px 24px;display:flex;align-items:center;gap:12px;font-weight:800;color:var(--ink);box-shadow:0 12px 44px rgba(0,0,0,.22)}
@@ -489,6 +498,28 @@ function computeGroups(){
   if((state.groupMode||'mix')==='mix') ordered.forEach((p,i)=>groups[i%G].push(p));           // 다양성: 라운드로빈 → 유형 분산
   else                                 ordered.forEach((p,i)=>groups[Math.floor(i*G/N)].push(p)); // 동질: 연속 배분 → 유형 밀집
   state.groups=groups;
+}
+
+// 조별 평균 막대 + 미니 좌표
+function groupStats_(g){
+  const n=g.length; if(!n) return '';
+  const avg={}; MODE_ORDER.forEach(k=>{ avg[k]=g.reduce((s,p)=>s+(p.scores[k]||0),0)/n; });
+  const bars=MODE_ORDER.map(k=>`<div class="gsrow"><span class="gsn" style="color:${MODES[k].hex}">${MODES[k].name}</span><span class="gstrack"><i style="width:${Math.round(avg[k]/12*100)}%;background:${MODES[k].hex}"></i></span><span class="gsv">${avg[k].toFixed(1)}</span></div>`).join('');
+  const S=104, PAD=9, inner=S-PAD*2;
+  const X=v=>PAD+v*inner, Y=v=>PAD+(1-v)*inner;
+  let cAs=0,cCo=0;
+  const dots=g.map((p,idx)=>{ const c=centroid(p.scores); cAs+=c.assert; cCo+=c.coop;
+    const d=dominantModes(p.scores); const hx=d.length>1?MIXED_HEX:MODES[d[0]].hex;
+    const j=(idx%5-2)*0.018;
+    return `<circle cx="${X(Math.min(1,Math.max(0,c.coop+j))).toFixed(1)}" cy="${Y(Math.min(1,Math.max(0,c.assert-j))).toFixed(1)}" r="4" fill="${hx}" opacity="0.85"/>`;
+  }).join('');
+  const gm=`<circle cx="${X(cCo/n).toFixed(1)}" cy="${Y(cAs/n).toFixed(1)}" r="5.5" fill="#1C3A2E" stroke="#fff" stroke-width="1.6"/>`;
+  const svg=`<svg viewBox="0 0 ${S} ${S}" width="${S}" height="${S}" role="img" aria-label="조 갈등 좌표">
+    <rect x="${PAD}" y="${PAD}" width="${inner}" height="${inner}" fill="#F7F5EF" stroke="#E7E1D4"/>
+    <line x1="${PAD+inner/2}" y1="${PAD}" x2="${PAD+inner/2}" y2="${PAD+inner}" stroke="#E7E1D4" stroke-dasharray="2 3"/>
+    <line x1="${PAD}" y1="${PAD+inner/2}" x2="${PAD+inner}" y2="${PAD+inner/2}" stroke="#E7E1D4" stroke-dasharray="2 3"/>
+    ${dots}${gm}</svg>`;
+  return `<div class="gstats"><div class="gsbars">${bars}</div><div class="gsgrid">${svg}<span class="gslabel">조 좌표</span></div></div>`;
 }
 
 // ── 진행자 화면 이미지/PDF 내려받기 (프로젝터·슬라이드용) ──
@@ -1121,7 +1152,7 @@ function vAdminDash(){
   const groupsOut=(state.groups&&state.groups.length)?`<div class="groups">${state.groups.map((g,i)=>{
     const comp={}; let mixedN=0; g.forEach(p=>{const d=dominantModes(p.scores); if(d.length>1) mixedN++; else comp[d[0]]=(comp[d[0]]||0)+1;});
     const chips=MODE_ORDER.filter(k=>comp[k]).map(k=>`<span class="gchip" style="background:${MODES[k].hex}1a;color:${MODES[k].hex}">${MODES[k].name} ${comp[k]}</span>`).join('')+(mixedN?`<span class="gchip" style="background:${MIXED_HEX}1a;color:${MIXED_HEX}">복합 ${mixedN}</span>`:'');
-    return `<div class="grp"><div class="grp-head">${i+1}조 <span class="muted">· ${g.length}명</span></div><div class="grp-comp">${chips}</div>${g.map(p=>{const d=dominantModes(p.scores);const hx=d.length>1?MIXED_HEX:MODES[d[0]].hex;return `<div class="grp-row"><span class="dot" style="background:${hx}"></span><span class="gn">${esc(p.name)}</span>${p.team?`<span class="gt muted">${esc(p.team)}</span>`:''}<span class="gtype" style="color:${hx}">${d.map(x=>MODES[x].name).join('·')}</span></div>`;}).join('')}</div>`;
+    return `<div class="grp"><div class="grp-head">${i+1}조 <span class="muted">· ${g.length}명</span></div><div class="grp-comp">${chips}</div>${g.map(p=>{const d=dominantModes(p.scores);const hx=d.length>1?MIXED_HEX:MODES[d[0]].hex;return `<div class="grp-row"><span class="dot" style="background:${hx}"></span><span class="gn">${esc(p.name)}</span>${p.team?`<span class="gt muted">${esc(p.team)}</span>`:''}<span class="gtype" style="color:${hx}">${d.map(x=>MODES[x].name).join('·')}</span></div>`;}).join('')}${groupStats_(g)}</div>`;
   }).join('')}</div>`:`<p class="muted small" style="margin-top:6px">방식·기준을 고르고 <b>조 편성</b>을 누르면 자동으로 나눠져요.</p>`;
   const groupCard=`<div class="card">
     <div class="eyebrow">자동 조편성</div>
