@@ -631,9 +631,24 @@ async function downloadPptx(){
     });
     const pptx=new Pptx();
     pptx.defineLayout({name:'WA', width:13.33, height:7.5}); pptx.layout='WA';
-    const maxW=12.3, maxH=6.55;
+    const maxW=12.3, maxH=6.4;
+    const SLIDE_AR=maxW/maxH;                 // 16:9 슬라이드 비율
     for(const card of cards){
-      const canvas=await html2canvas(card,{scale:2, backgroundColor:'#FFFFFF', useCORS:true, logging:false});
+      // 카드가 세로로 길면 캡처 폭을 넓혀 가로 화면에 맞춘다
+      const natW=card.offsetWidth, natH=card.offsetHeight;
+      let capW=natW;
+      if(natH>0 && natW/natH < SLIDE_AR){
+        capW=Math.min(2600, Math.round(natH*SLIDE_AR));   // 가로로 펴기
+      }
+      const prevW=card.style.width, prevMax=card.style.maxWidth;
+      if(capW!==natW){ card.style.width=capW+'px'; card.style.maxWidth='none'; await new Promise(r=>setTimeout(r,60)); }
+      let canvas;
+      try{
+        canvas=await html2canvas(card,{scale:2, backgroundColor:'#FFFFFF', useCORS:true, logging:false,
+          width:card.offsetWidth, height:card.offsetHeight, windowWidth:card.offsetWidth});
+      } finally {
+        if(capW!==natW){ card.style.width=prevW; card.style.maxWidth=prevMax; }
+      }
       const aspect=canvas.width/canvas.height;
       let w=maxW, h=w/aspect; if(h>maxH){ h=maxH; w=h*aspect; }
       const slide=pptx.addSlide(); slide.background={color:'FBF8F1'};
