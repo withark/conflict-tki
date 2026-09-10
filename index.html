@@ -501,6 +501,7 @@ function computeGroups(){
 }
 
 // 조별 평균 막대 + 미니 좌표
+const MIXED_HEX='#6E7A72';   // 복합형(동점) 표시 색 — 전역
 function groupStats_(g){
   const n=g.length; if(!n) return '';
   const avg={}; MODE_ORDER.forEach(k=>{ avg[k]=g.reduce((s,p)=>s+(p.scores[k]||0),0)/n; });
@@ -1063,7 +1064,6 @@ function vAdminDash(){
 
   // aggregate
   const N=R.length;
-  const MIXED_HEX='#6E7A72';
   const avg={}; MODE_ORDER.forEach(k=>avg[k]=0);
   const distrib={}; MODE_ORDER.forEach(k=>distrib[k]=0);
   const domCount={}; MODE_ORDER.forEach(k=>domCount[k]=0); // 동점 포함, 유형별 등장 인원
